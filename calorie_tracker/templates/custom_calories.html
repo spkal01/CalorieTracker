@@ -2,7 +2,7 @@
 
 {% block content %}
 <div id="upload-container" class="bg-zinc-800 border border-zinc-700 p-6 rounded-lg shadow-sm {% if ai_result %}hidden{% endif %}">
-    <form action="{{ url_for('upload') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
+    <form action="{{ url_for('custom_calories') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
         <div>
             <label class="block text-sm font-medium text-zinc-300 mb-1">Upload Image</label>
             <input type="file" name="file" accept="image/*"
@@ -24,6 +24,14 @@
         const markdownContent = `{{ ai_result | safe }}`;
         document.getElementById('markdown-content').innerHTML = marked.parse(markdownContent);
     </script>
+    {% if calories %}
+    <form action="{{ url_for('index') }}" method="GET" class="mt-6">
+        <input type="hidden" name="calories" value="{{ calories }}">
+        <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded transition">
+            Save Calorie Count ({{ calories }} kcal)
+        </button>
+    </form>
+    {% endif %}
 </div>
 {% endif %}
 

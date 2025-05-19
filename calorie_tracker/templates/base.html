@@ -9,12 +9,98 @@
     <script src="{{ url_for('static', filename='js/reset.js') }}"></script>
 </head>
 <body class="min-h-screen flex flex-col font-sans antialiased">
-    <header class="border-b border-zinc-800 px-6 py-4">
-        <div class="max-w-3xl mx-auto">
-            <h1 class="text-2xl font-semibold">Calorie Tracker</h1>
-            <p class="text-sm text-zinc-400">Upload a meal image and let AI estimate the calories</p>
+    <!-- Responsive Animated Navbar Start -->
+    <nav class="bg-zinc-900 border-b border-zinc-800">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <a href="{{ url_for('index') }}" class="text-2xl font-bold text-white hover:text-blue-400 transition whitespace-nowrap">Calorie Tracker</a>
+            </div>
+            <div class="hidden md:flex gap-8 items-center">
+                <a href="{{ url_for('index') }}" class="text-white hover:text-blue-400 transition text-lg">Dashboard</a>
+                <a href="{{ url_for('custom_calories') }}" class="text-zinc-300 hover:text-blue-400 transition text-lg">Custom Calorie Analyzer</a>
+                <a href="{{ url_for('saved')}}" class="text-zinc-300 hover:text-blue-400 transition text-lg">Saved</a>
+                <!-- Dropdown -->
+                <div class="relative" id="dropdown-container">
+                    <button id="dropdown-toggle" class="text-zinc-300 hover:text-blue-400 transition text-lg focus:outline-none flex items-center gap-1">
+                        More 
+                        <svg id="dropdown-arrow" class="w-4 h-4 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div id="dropdown-menu" class="absolute hidden bg-zinc-800 mt-2 rounded shadow-lg py-2 w-48 z-10 right-0 transition-all duration-300 opacity-0 scale-95 pointer-events-none">
+                        <a href="#" class="block px-4 py-2 text-sm text-white hover:bg-zinc-700">Settings</a>
+                        <a href="#" class="block px-4 py-2 text-sm text-white hover:bg-zinc-700">Profile</a>
+                        <a href="#" class="block px-4 py-2 text-sm text-white hover:bg-zinc-700">Logout</a>
+                    </div>
+                </div>
+            </div>
+            <button id="nav-toggle" class="md:hidden flex flex-col gap-1 w-8 h-8 justify-center items-center focus:outline-none group" aria-label="Toggle navigation">
+                <span class="w-6 h-0.5 bg-white rounded transition-transform duration-300 group-[.open]:rotate-45 group-[.open]:translate-y-1.5"></span>
+                <span class="w-6 h-0.5 bg-white rounded transition-all duration-300 group-[.open]:opacity-0"></span>
+                <span class="w-6 h-0.5 bg-white rounded transition-transform duration-300 group-[.open]:-rotate-45 group-[.open]:-translate-y-1.5"></span>
+            </button>
         </div>
-    </header>
+        <div id="nav-menu" class="md:hidden overflow-hidden max-h-0 transition-[max-height] duration-500 ease-in-out bg-zinc-900 px-4">
+            <div class="flex flex-col gap-4 py-4">
+                <a href="{{ url_for('index') }}" class="text-white hover:text-blue-400 transition text-lg">Dashboard</a>
+                <a href="{{ url_for('custom_calories') }}" class="text-zinc-300 hover:text-blue-400 transition text-lg">Custom Calorie Analyzer</a>
+                <a href="{{ url_for('saved')}}" class="text-zinc-300 hover:text-blue-400 transition text-lg">Saved</a>
+                <div class="border-t border-zinc-700 pt-2">
+                    <a href="#" class="block py-2 text-white hover:text-blue-400 transition text-lg">Settings</a>
+                    <a href="#" class="block py-2 text-white hover:text-blue-400 transition text-lg">Profile</a>
+                    <a href="#" class="block py-2 text-white hover:text-blue-400 transition text-lg">Logout</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        const toggle = document.getElementById('nav-toggle');
+        const menu = document.getElementById('nav-menu');
+
+        toggle.addEventListener('click', () => {
+          toggle.classList.toggle('open');
+          if (menu.style.maxHeight && menu.style.maxHeight !== '0px') {
+            menu.style.maxHeight = '0px';
+          } else {
+            menu.style.maxHeight = menu.scrollHeight + 'px';
+          }
+        });
+
+        // Dropdown click toggle with animation
+        const dropdownToggle = document.getElementById('dropdown-toggle');
+        const dropdownMenu = document.getElementById('dropdown-menu');
+        const dropdownArrow = document.getElementById('dropdown-arrow');
+
+        dropdownToggle.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const isOpen = !dropdownMenu.classList.contains('hidden');
+          if (isOpen) {
+            dropdownMenu.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
+            dropdownMenu.classList.remove('opacity-100', 'scale-100');
+            dropdownArrow.classList.remove('rotate-180');
+            setTimeout(() => dropdownMenu.classList.add('hidden'), 300);
+          } else {
+            dropdownMenu.classList.remove('hidden');
+            setTimeout(() => {
+              dropdownMenu.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
+              dropdownMenu.classList.add('opacity-100', 'scale-100');
+              dropdownArrow.classList.add('rotate-180');
+            }, 10);
+          }
+        });
+
+        document.addEventListener('click', (e) => {
+          if (!dropdownMenu.classList.contains('hidden') && !dropdownMenu.contains(e.target) && e.target !== dropdownToggle) {
+            dropdownMenu.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
+            dropdownMenu.classList.remove('opacity-100', 'scale-100');
+            dropdownArrow.classList.remove('rotate-180');
+            setTimeout(() => dropdownMenu.classList.add('hidden'), 300);
+          }
+        });
+      });
+    </script>
+    <!-- Responsive Animated Navbar End -->
 
     <main class="flex-grow px-6 py-10">
         <div id="content-container" class="max-w-3xl mx-auto">
