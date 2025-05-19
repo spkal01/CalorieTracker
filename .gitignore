@@ -1,0 +1,13 @@
+# Node modules
+node_modules/
+
+# Configuration files
+calorie_tracker/config.py
+
+# Cache
+calorie_tracker/__pycache__/
+calorie_tracker/static/uploads/
+
+# IDE files
+.vscode/
+.idea/

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div id="upload-container" class="bg-zinc-800 border border-zinc-700 p-6 rounded-lg shadow-sm {% if ai_result %}hidden{% endif %}">
+    <form action="{{ url_for('upload') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
+        <div>
+            <label class="block text-sm font-medium text-zinc-300 mb-1">Upload Image</label>
+            <input type="file" name="file" accept="image/*"
+                   class="block w-full bg-zinc-900 border border-zinc-700 text-zinc-100 file:bg-zinc-700 file:text-zinc-100 file:rounded file:border-none file:px-3 file:py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <button type="submit"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition">
+            Upload & Analyze
+        </button>
+    </form>
+</div>
+
+{% if ai_result %}
+<div id="result-container" class="mt-8 bg-zinc-800 border border-zinc-700 p-4 rounded-lg text-zinc-100">
+    <h2 class="text-lg font-semibold mb-2">AI Analysis</h2>
+    <!-- Markdown content container -->
+    <div id="markdown-content" class="prose max-w-none"></div>
+    <script>
+        const markdownContent = `{{ ai_result | safe }}`;
+        document.getElementById('markdown-content').innerHTML = marked.parse(markdownContent);
+    </script>
+</div>
+{% endif %}
+
+{% if img_path %}
+<div id="image-container" class="mt-10 text-center">
+    <h2 class="text-lg font-medium text-zinc-200">Processed Image</h2>
+    <div class="mt-4">
+        <img src="{{ url_for('static', filename='uploads/' + img_path.split('/')[-1]) }}"
+             alt="Processed Image" class="rounded-lg max-w-md mx-auto border border-zinc-700 shadow">
+    </div>
+    <div class="mt-4">
+        <button onclick="resetUpload()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition">
+            Upload Another Image
+        </button>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en" class="bg-zinc-900 text-zinc-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calorie Tracker</title>
+    <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="{{ url_for('static', filename='js/reset.js') }}"></script>
+</head>
+<body class="min-h-screen flex flex-col font-sans antialiased">
+    <header class="border-b border-zinc-800 px-6 py-4">
+        <div class="max-w-3xl mx-auto">
+            <h1 class="text-2xl font-semibold">Calorie Tracker</h1>
+            <p class="text-sm text-zinc-400">Upload a meal image and let AI estimate the calories</p>
+        </div>
+    </header>
+
+    <main class="flex-grow px-6 py-10">
+        <div id="content-container" class="max-w-3xl mx-auto">
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    <div class="mb-4 space-y-2">
+                        {% for message in messages %}
+                            <div class="bg-red-800/50 border border-red-500 text-red-200 px-4 py-3 rounded">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <footer class="text-center text-xs text-zinc-500 py-6 border-t border-zinc-800">
+        &copy; {{ year }} Calorie Tracker
+    </footer>
+</body>
+</html>

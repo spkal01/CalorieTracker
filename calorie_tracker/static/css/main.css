@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+@layer utilities {
+    #upload-container.hidden + #result-container {
+        margin-top: 0;
+    }
+}
