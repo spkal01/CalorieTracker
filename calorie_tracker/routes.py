@@ -33,19 +33,17 @@ def index():
 
 @app.route('/saved', methods=['GET', 'POST'])
 def saved():
-    # Simulate saved data
     if request.method == 'POST':
-        # Handle form submission
         date = request.form.get('date')
         calories = request.form.get('calories')
         if date and calories:
-            # Save the data to the database
             push_data(calories, date)
             flash('Data saved successfully!', 'success')
         else:
             flash('Please provide both date and calories.', 'error')
     saved_data = get_saved_data()
-    return render_template('saved.html', saved_data=saved_data)
+    edit_date = request.args.get('edit')
+    return render_template('saved.html', saved_data=saved_data, edit_date=edit_date)
 
 
 @app.route('/custom_calories', methods=['GET', 'POST'])
@@ -124,6 +122,7 @@ def push_data(calories, date=dt.now().strftime("%Y-%m-%d")):
         db.session.add(data)
         db.session.commit()
 
+@app.route('/delete/<date>', methods=['POST'])
 def delete_data(date):
     # Delete the record with the given date
     data = SavedCalories.query.filter_by(date=date).first()
@@ -131,6 +130,19 @@ def delete_data(date):
         db.session.delete(data)
         db.session.commit()
         flash('Data deleted successfully!', 'success')
+    else:
+        flash('No data found for the given date.', 'error')
+    return redirect(url_for('saved'))
+
+@app.route('/edit/<date>', methods=['POST'])
+def edit_data(date):
+    # Edit the record with the given date
+    data = SavedCalories.query.filter_by(date=date).first()
+    new_calories = request.form.get('calories')
+    if data and new_calories:
+        data.calories = new_calories
+        db.session.commit()
+        flash('Data updated successfully!', 'success')
     else:
         flash('No data found for the given date.', 'error')
     return redirect(url_for('saved'))
