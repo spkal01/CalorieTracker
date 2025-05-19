@@ -8,6 +8,9 @@ calorie_tracker/config.py
 calorie_tracker/__pycache__/
 calorie_tracker/static/uploads/
 
+# database
+calorie_tracker/instance/
+
 # IDE files
 .vscode/
 .idea/

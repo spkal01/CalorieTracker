@@ -1,15 +1,18 @@
 import os
 import time
 from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
+# Configure the database
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///calorie_tracker.db'
 
 # App configuration
 UPLOAD_FOLDER = './calorie_tracker/static/uploads/'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 app.config['SECRET_KEY'] = 'ashdahdadss'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
+db = SQLAlchemy(app)
 # Utility function to check allowed file types
 def allowed_file(filename):
     return '.' in filename and \

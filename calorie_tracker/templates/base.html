@@ -104,11 +104,20 @@
 
     <main class="flex-grow px-6 py-10">
         <div id="content-container" class="max-w-3xl mx-auto">
-            {% with messages = get_flashed_messages() %}
+            {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     <div class="mb-4 space-y-2">
-                        {% for message in messages %}
-                            <div class="bg-red-800/50 border border-red-500 text-red-200 px-4 py-3 rounded">
+                        {% for category, message in messages %}
+                            <div class="
+                                px-4 py-3 rounded border
+                                {% if category == 'success' %}
+                                    bg-green-800/50 border-green-500 text-green-200
+                                {% elif category == 'error' %}
+                                    bg-red-800/50 border-red-500 text-red-200
+                                {% else %}
+                                    bg-zinc-800 border-zinc-700 text-zinc-200
+                                {% endif %}
+                            ">
                                 {{ message }}
                             </div>
                         {% endfor %}
