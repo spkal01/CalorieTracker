@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex flex-col items-center justify-center min-h-[60vh]">
+    <div class="w-full max-w-md bg-zinc-800 border border-zinc-700 rounded-lg shadow p-8">
+        <div class="flex flex-col items-center mb-6">
+            <div class="w-20 h-20 rounded-full bg-blue-600 flex items-center justify-center text-4xl font-bold text-white mb-3">
+                {{ username[0]|upper }}
+            </div>
+            <h2 class="text-2xl font-bold text-zinc-100">{{ username }}</h2>
+            <p class="text-zinc-400">{{ email }}</p>
+        </div>
+        <div class="mt-6 space-y-4">
+            <a href="{{ url_for('saved') }}" class="block w-full text-center bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition">
+                View Calorie Entries
+            </a>
+            <a href="{{ url_for('custom_calories') }}" class="block w-full text-center bg-zinc-700 hover:bg-blue-700 text-blue-200 font-semibold py-2 px-4 rounded transition">
+                Custom Calorie Analyzer
+            </a>
+            <form action="{{ url_for('logout') }}">
+                <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded transition mt-2">
+                    Log Out
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

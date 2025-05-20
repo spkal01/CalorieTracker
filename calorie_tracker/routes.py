@@ -1,8 +1,8 @@
 import os
 import re
 import cv2
-from datetime import datetime as dt
-from flask import flash, render_template, request, redirect, url_for
+from datetime import datetime as dt, timedelta
+from flask import flash, render_template, request, redirect, url_for, session
 from werkzeug.utils import secure_filename
 from calorie_tracker import app, allowed_file, cleanup_uploads
 import openai
@@ -13,6 +13,11 @@ from calorie_tracker import db
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from calorie_tracker import bcrypt
 from calorie_tracker import login_manager
+from flask_mail import Message
+from calorie_tracker import mail
+import random
+from itsdangerous import URLSafeTimedSerializer
+
 
 # Initialize SQLAlchemy
 
@@ -45,10 +50,11 @@ class User(db.Model, UserMixin):
     username = db.Column(db.String(150), unique=True, nullable=False)
     password = db.Column(db.String(150), nullable=False)
     saved_calories = db.relationship('SavedCalories', backref='user', lazy=True)
+    email = db.Column(db.String(150), unique=True, nullable=False)
 
 @app.before_request
 def require_login():
-    public_routes = ['login', 'signup', 'static']  # Add other public endpoints if needed
+    public_routes = ['login', 'signup', 'static', 'signup_verify', 'signup_email', 'forgot_password', 'reset_password']  # Add other public endpoints if needed
     if not current_user.is_authenticated and request.endpoint not in public_routes:
         return redirect(url_for('login'))
 
@@ -78,21 +84,116 @@ def signup():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        confirm_password = request.form.get('confim_password')
+        confirm_password = request.form.get('confirm_password')
         if password != confirm_password:
             flash('Passwords do not match!', 'error')
-            return redirect(url_for('signup'))
-        existing_user = User.query.filter_by(username=username).first()
-        if existing_user:
-            flash('Username already exists. Please choose a different one.', 'error')
-            return redirect(url_for('signup'))
-        hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-        new_user = User(username=username, password=hashed_password)
-        db.session.add(new_user)
-        db.session.commit()
-        flash('Account created successfully!', 'success')
-        return redirect(url_for('login'))
-    return render_template('login/signup.html')
+            return render_template('login/signup_step1.html')
+        if User.query.filter_by(username=username).first():
+            flash('Username already exists.', 'error')
+            return render_template('login/signup_step1.html')
+        # Store in session and go to step 2
+        session['signup_username'] = username
+        session['signup_password'] = password
+        return redirect(url_for('signup_email'))
+    return render_template('login/signup_step1.html')
+
+@app.route('/forgot_password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        user = User.query.filter_by(email=email).first()
+        if user:
+            token = generate_reset_token(email)
+            reset_url = url_for('reset_password', token=token, _external=True)
+            email_body = (
+                f"Hello,\n\n"
+                f"To reset your password, click the link below:\n\n"
+                f"{reset_url}\n\n"
+                f"If you did not request this, please ignore this email.\n\n"
+                f"Best regards,\n"
+                f"The CalorieTracker Team"
+            )
+            send_email('Your CalorieTracker Password Reset Link', email, email_body)
+            flash('A password reset link has been sent to your email.', 'info')
+            return redirect(url_for('login'))
+        else:
+            flash('Email not found.', 'error')
+    return render_template('login/forgot_password.html')
+
+@app.route('/reset_password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    email = verify_reset_token(token)
+    if not email:
+        flash('The password reset link is invalid or has expired.', 'error')
+        return redirect(url_for('forgot_password'))
+    if request.method == 'POST':
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        if password != confirm_password:
+            flash('Passwords do not match.', 'error')
+            return render_template('login/reset_password.html', token=token)
+        user = User.query.filter_by(email=email).first()
+        if user:
+            user.password = bcrypt.generate_password_hash(password).decode('utf-8')
+            db.session.commit()
+            flash('Your password has been reset. You can now log in.', 'success')
+            return redirect(url_for('login'))
+        else:
+            flash('User not found.', 'error')
+    return render_template('login/reset_password.html', token=token)
+
+@app.route('/signup/email', methods=['GET', 'POST'])
+def signup_email():
+    if 'signup_username' not in session or 'signup_password' not in session:
+        return redirect(url_for('signup'))
+    if request.method == 'POST':
+        email = request.form.get('email')
+        if User.query.filter_by(email=email).first():
+            flash('Email already registered.', 'error')
+            return render_template('login/signup_step2.html')
+        # Generate and "send" verification code
+        code = str(random.randint(100000, 999999))
+        session['signup_email'] = email
+        session['signup_code'] = code
+        email_body = (
+            f"Hello,\n\n"
+            f"Thank you for signing up for CalorieTracker!\n\n"
+            f"Your verification code is:\n\n"
+            f"    {code}\n\n"
+            f"Please enter this code to complete your registration.\n\n"
+            f"If you did not request this, please ignore this email.\n\n"
+            f"Best regards,\n"
+            f"The CalorieTracker Team"
+        )
+        send_email('Your CalorieTracker Verification Code', email, email_body)
+        return redirect(url_for('signup_verify'))
+    return render_template('login/signup_step2.html')
+
+@app.route('/signup/verify', methods=['GET', 'POST'])
+def signup_verify():
+    if 'signup_email' not in session or 'signup_code' not in session:
+        return redirect(url_for('signup'))
+    if request.method == 'POST':
+        code = request.form.get('code')
+        if code == session.get('signup_code'):
+            # Create user
+            username = session['signup_username']
+            password = session['signup_password']
+            email = session['signup_email']
+            hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+            new_user = User(username=username, password=hashed_password, email=email)
+            db.session.add(new_user)
+            db.session.commit()
+            # Clear session
+            session.pop('signup_username', None)
+            session.pop('signup_password', None)
+            session.pop('signup_email', None)
+            session.pop('signup_code', None)
+            flash('Account created successfully!', 'success')
+            return redirect(url_for('login'))
+        else:
+            flash('Invalid verification code.', 'error')
+    return render_template('login/signup_step3.html')
 
 @app.route('/')
 @login_required
@@ -228,6 +329,14 @@ def get_saved_data():
     result.sort(key=lambda x: dt.strptime(x['date'], "%Y-%m-%d"), reverse=True)
     return result
 
+
+@app.route('/profile', methods=['GET','POST'])
+@login_required
+def profile():
+    username = current_user.username
+    email = current_user.email
+    return render_template('profile.html', username=username, email=email)
+
 def push_data(calories, date=dt.now().strftime("%Y-%m-%d"), food_name="Custom"):
     entry = SavedCalories.query.filter_by(date=date, user_id=current_user.id).first()
     if not entry:
@@ -268,3 +377,20 @@ def edit_data(entry_id):
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+
+def send_email(subject, recipient, body):
+    msg = Message(subject, recipients=[recipient])
+    msg.body = body
+    mail.send(msg)
+
+def generate_reset_token(email):
+    serializer = URLSafeTimedSerializer(config.SECRET_KEY)
+    return serializer.dumps(email, salt=config.SECURITY_PASSWORD_SALT)
+
+def verify_reset_token(token, expiration=3600):
+    serializer = URLSafeTimedSerializer(config.SECRET_KEY)
+    try:
+        email = serializer.loads(token, salt=config.SECURITY_PASSWORD_SALT, max_age=expiration)
+    except Exception:
+        return None
+    return email
