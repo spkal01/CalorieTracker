@@ -6,7 +6,7 @@ function resetUpload() {
     if (uploadContainer) {
         uploadContainer.classList.remove('hidden');
         uploadContainer.innerHTML = `
-            <form action="/upload" method="POST" enctype="multipart/form-data" class="space-y-6">
+            <form action="/custom_calories" method="POST" enctype="multipart/form-data" class="space-y-6">
                 <div>
                     <label class="block text-sm font-medium text-zinc-300 mb-1">Upload Image</label>
                     <input type="file" name="file" accept="image/*"

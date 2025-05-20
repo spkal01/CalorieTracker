@@ -9,7 +9,9 @@
                    class="block w-full bg-zinc-900 border border-zinc-700 text-zinc-100 file:bg-zinc-700 file:text-zinc-100 file:rounded file:border-none file:px-3 file:py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
         <button type="submit"
-                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition">
+                id="upload-btn"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition opacity-50 cursor-not-allowed"
+                disabled>
             Upload & Analyze
         </button>
     </form>
@@ -24,11 +26,12 @@
         const markdownContent = `{{ ai_result | safe }}`;
         document.getElementById('markdown-content').innerHTML = marked.parse(markdownContent);
     </script>
-    {% if calories %}
+    {% if calories and food_name %}
     <form action="{{ url_for('index') }}" method="GET" class="mt-6">
         <input type="hidden" name="calories" value="{{ calories }}">
+        <input type="hidden" name="food_name" value="{{ food_name }}">
         <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded transition">
-            Save Calorie Count ({{ calories }} kcal)
+            Save "{{ food_name }}" ({{ calories }} kcal)
         </button>
     </form>
     {% endif %}
@@ -49,4 +52,53 @@
     </div>
 </div>
 {% endif %}
+
+<div id="loading-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(24,24,27,0.85); z-index:1000; align-items:center; justify-content:center;">
+    <div class="flex flex-col items-center">
+        <!-- Bouncing food emoji -->
+        <div class="text-5xl mb-4 animate-bounce" style="animation-duration:1s;">🍔</div>
+        <!-- Animated spinner -->
+        <svg class="animate-spin h-12 w-12 text-blue-400 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+        </svg>
+        <!-- Animated dots message -->
+        <span class="text-white text-lg font-semibold flex items-center">
+            Analyzing your food
+            <span id="loading-dots" class="ml-1">.</span>
+        </span>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form[enctype="multipart/form-data"]');
+    const fileInput = form.querySelector('input[type="file"]');
+    const uploadBtn = document.getElementById('upload-btn');
+    if (form && fileInput && uploadBtn) {
+        fileInput.addEventListener('change', function() {
+            if (fileInput.files.length > 0) {
+                uploadBtn.disabled = false;
+                uploadBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            } else {
+                uploadBtn.disabled = true;
+                uploadBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+        });
+        form.addEventListener('submit', function() {
+            document.getElementById('loading-overlay').style.display = 'flex';
+        });
+    }
+
+    // Animated dots for loading message
+    let dots = 1;
+    setInterval(function() {
+        const el = document.getElementById('loading-dots');
+        if (el) {
+            dots = (dots % 3) + 1;
+            el.textContent = '.'.repeat(dots);
+        }
+    }, 500);
+});
+</script>
 {% endblock %}
