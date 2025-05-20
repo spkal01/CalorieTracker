@@ -10,6 +10,9 @@ import base64
 from calorie_tracker import config
 from flask_sqlalchemy import SQLAlchemy
 from calorie_tracker import db
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from calorie_tracker import bcrypt
+from calorie_tracker import login_manager
 
 # Initialize SQLAlchemy
 
@@ -18,7 +21,8 @@ openai.api_key=config.OPENAI_API_KEY
 def read_image_base64(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode('utf-8')
-    
+
+
 class FoodItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     saved_calories_id = db.Column(db.Integer, db.ForeignKey('saved_calories.id'), nullable=False)
@@ -28,6 +32,7 @@ class FoodItem(db.Model):
 class SavedCalories(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.String(50), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     food_items = db.relationship(
         'FoodItem',
         backref='saved_calories',
@@ -35,7 +40,62 @@ class SavedCalories(db.Model):
         cascade="all, delete-orphan"
     )
 
+class User(db.Model, UserMixin):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(150), unique=True, nullable=False)
+    password = db.Column(db.String(150), nullable=False)
+    saved_calories = db.relationship('SavedCalories', backref='user', lazy=True)
+
+@app.before_request
+def require_login():
+    public_routes = ['login', 'signup', 'static']  # Add other public endpoints if needed
+    if not current_user.is_authenticated and request.endpoint not in public_routes:
+        return redirect(url_for('login'))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        user = User.query.filter_by(username=username).first()
+        if user and bcrypt.check_password_hash(user.password, password):
+            login_user(user)
+            flash('Login successful!', 'success')
+            return redirect(url_for('index'))
+        else:
+            flash('Invalid username or password', 'error')
+    return render_template('login/login.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash('You have been logged out.', 'success')
+    return redirect(url_for('login'))
+
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        confirm_password = request.form.get('confim_password')
+        if password != confirm_password:
+            flash('Passwords do not match!', 'error')
+            return redirect(url_for('signup'))
+        existing_user = User.query.filter_by(username=username).first()
+        if existing_user:
+            flash('Username already exists. Please choose a different one.', 'error')
+            return redirect(url_for('signup'))
+        hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+        new_user = User(username=username, password=hashed_password)
+        db.session.add(new_user)
+        db.session.commit()
+        flash('Account created successfully!', 'success')
+        return redirect(url_for('login'))
+    return render_template('login/signup.html')
+
 @app.route('/')
+@login_required
 def index():
     custom_calories = request.args.get('calories', default=0, type=int)
     food_name = request.args.get('food_name', default='', type=str)
@@ -45,16 +105,16 @@ def index():
     return render_template('dashboard.html', year=dt.now().year)
 
 @app.route('/saved', methods=['GET', 'POST'])
+@login_required
 def saved():
     if request.method == 'POST':
         date = request.form.get('date')
         food_name = request.form.get('food_name')
         food_calories = request.form.get('food_calories')
         if date and food_name and food_calories:
-            # Find or create SavedCalories for the date
-            entry = SavedCalories.query.filter_by(date=date).first()
+            entry = SavedCalories.query.filter_by(date=date, user_id=current_user.id).first()
             if not entry:
-                entry = SavedCalories(date=date)
+                entry = SavedCalories(date=date, user_id=current_user.id)
                 db.session.add(entry)
                 db.session.commit()
             food = FoodItem(saved_calories_id=entry.id, name=food_name, calories=int(food_calories))
@@ -69,6 +129,7 @@ def saved():
 
 
 @app.route('/custom_calories', methods=['GET', 'POST'])
+@login_required
 def custom_calories():
     if request.method == 'POST':
         if 'file' not in request.files:
@@ -133,11 +194,16 @@ def custom_calories():
     return render_template('custom_calories.html')
 
 @app.route('/add_food/<int:entry_id>', methods=['POST'])
+@login_required
 def add_food(entry_id):
+    entry = SavedCalories.query.filter_by(id=entry_id, user_id=current_user.id).first()
+    if not entry:
+        flash('No entry found for this user.', 'error')
+        return redirect(url_for('saved'))
     name = request.form.get('food_name')
     calories = request.form.get('food_calories')
     if name and calories:
-        food = FoodItem(saved_calories_id=entry_id, name=name, calories=int(calories))
+        food = FoodItem(saved_calories_id=entry.id, name=name, calories=int(calories))
         db.session.add(food)
         db.session.commit()
         flash('Food item added!', 'success')
@@ -146,7 +212,7 @@ def add_food(entry_id):
     return redirect(url_for('saved'))
 
 def get_saved_data():
-    saved_data = SavedCalories.query.all()
+    saved_data = SavedCalories.query.filter_by(user_id=current_user.id).all()
     if not saved_data:
         return []
     result = []
@@ -163,19 +229,19 @@ def get_saved_data():
     return result
 
 def push_data(calories, date=dt.now().strftime("%Y-%m-%d"), food_name="Custom"):
-    entry = SavedCalories.query.filter_by(date=date).first()
+    entry = SavedCalories.query.filter_by(date=date, user_id=current_user.id).first()
     if not entry:
-        entry = SavedCalories(date=date)
+        entry = SavedCalories(date=date, user_id=current_user.id)
         db.session.add(entry)
         db.session.commit()
-    # Always add a new FoodItem for this entry
     food = FoodItem(saved_calories_id=entry.id, name=food_name, calories=int(calories))
     db.session.add(food)
     db.session.commit()
 
 @app.route('/delete/<int:entry_id>', methods=['POST'])
+@login_required
 def delete_data(entry_id):
-    data = SavedCalories.query.get(entry_id)
+    data = SavedCalories.query.filter_by(id=entry_id, user_id=current_user.id).first()
     if data:
         db.session.delete(data)
         db.session.commit()
@@ -185,13 +251,20 @@ def delete_data(entry_id):
     return redirect(url_for('saved'))
 
 @app.route('/edit/<int:entry_id>', methods=['POST'])
+@login_required
 def edit_data(entry_id):
-    data = SavedCalories.query.get(entry_id)
+    data = SavedCalories.query.filter_by(id=entry_id, user_id=current_user.id).first()
     new_calories = request.form.get('calories')
     if data and new_calories:
-        data.calories = new_calories
+        # Optionally update all food items' calories, or handle as needed
+        for food in data.food_items:
+            food.calories = int(new_calories)
         db.session.commit()
         flash('Data updated successfully!', 'success')
     else:
         flash('No data found for the given entry.', 'error')
     return redirect(url_for('saved'))
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))

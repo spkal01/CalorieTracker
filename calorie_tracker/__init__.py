@@ -2,6 +2,8 @@ import os
 import time
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager
+from flask_bcrypt import Bcrypt
 
 app = Flask(__name__)
 # Configure the database
@@ -13,6 +15,9 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 app.config['SECRET_KEY'] = 'ashdahdadss'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 db = SQLAlchemy(app)
+login_manager = LoginManager(app)
+login_manager.init_app(app)
+bcrypt = Bcrypt(app)
 # Utility function to check allowed file types
 def allowed_file(filename):
     return '.' in filename and \

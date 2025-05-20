@@ -9,6 +9,7 @@
     <script src="{{ url_for('static', filename='js/reset.js') }}"></script>
 </head>
 <body class="min-h-screen flex flex-col font-sans antialiased">
+    {% if current_user.is_authenticated %}
     <!-- Responsive Animated Navbar Start -->
     <nav class="bg-zinc-900 border-b border-zinc-800">
         <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
@@ -30,7 +31,7 @@
                     <div id="dropdown-menu" class="absolute hidden bg-zinc-800 mt-2 rounded shadow-lg py-2 w-48 z-10 right-0 transition-all duration-300 opacity-0 scale-95 pointer-events-none">
                         <a href="#" class="block px-4 py-2 text-sm text-white hover:bg-zinc-700">Settings</a>
                         <a href="#" class="block px-4 py-2 text-sm text-white hover:bg-zinc-700">Profile</a>
-                        <a href="#" class="block px-4 py-2 text-sm text-white hover:bg-zinc-700">Logout</a>
+                        <a href="{{ url_for('logout')}}" class="block px-4 py-2 text-sm text-white hover:bg-zinc-700">Logout</a>
                     </div>
                 </div>
             </div>
@@ -48,7 +49,7 @@
                 <div class="border-t border-zinc-700 pt-2">
                     <a href="#" class="block py-2 text-white hover:text-blue-400 transition text-lg">Settings</a>
                     <a href="#" class="block py-2 text-white hover:text-blue-400 transition text-lg">Profile</a>
-                    <a href="#" class="block py-2 text-white hover:text-blue-400 transition text-lg">Logout</a>
+                    <a href="{{ url_for('logout')}}" class="block py-2 text-white hover:text-blue-400 transition text-lg">Logout</a>
                 </div>
             </div>
         </div>
@@ -101,7 +102,7 @@
       });
     </script>
     <!-- Responsive Animated Navbar End -->
-
+    {% endif %}
     <main class="flex-grow px-6 py-10">
         <div id="content-container" class="max-w-3xl mx-auto">
             {% with messages = get_flashed_messages(with_categories=true) %}

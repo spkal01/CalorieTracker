@@ -2,7 +2,10 @@
 
 {% block content %}
 <div class="flex flex-col items-center justify-center min-h-[60vh]">
-    <h2 class="text-3xl font-bold mb-6">Welcome to Calorie Tracker Dashboard</h2>
+    <h2 class="text-3xl font-bold mb-6">
+        Welcome to Calorie Tracker Dashboard 
+        <span class="text-blue-500 capitalize">{{ current_user.username }}</span>
+    </h2>
     <a href="{{ url_for('custom_calories') }}"
        class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg text-lg transition">
         Go to Custom Calorie Analyzer
