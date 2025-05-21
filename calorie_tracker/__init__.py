@@ -6,7 +6,8 @@ from flask_login import LoginManager
 from flask_bcrypt import Bcrypt
 from flask_mail import Mail
 from calorie_tracker import config
-
+from flask_admin import Admin
+from flask_admin.contrib.sqla import ModelView
 app = Flask(__name__)
 # Configure the database
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///calorie_tracker.db'
@@ -44,3 +45,10 @@ def cleanup_uploads(folder, max_age_seconds):
 
 # Import routes
 from calorie_tracker import routes
+from calorie_tracker.routes import User, create_admin_user
+admin = Admin(app, name='Calorie Tracker Admin', template_mode='bootstrap3')
+admin.add_view(ModelView(User, db.session, name='Users'))
+with app.app_context():
+    create_admin_user()
+# Cleanup old files every 24 hours
+cleanup_uploads(UPLOAD_FOLDER, max_age_seconds=24*60*60)

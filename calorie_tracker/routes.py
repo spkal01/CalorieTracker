@@ -14,6 +14,7 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 from calorie_tracker import bcrypt
 from calorie_tracker import login_manager
 from flask_mail import Message
+from flask_admin.contrib.sqla import ModelView
 from calorie_tracker import mail
 import random
 from itsdangerous import URLSafeTimedSerializer
@@ -56,6 +57,14 @@ class User(db.Model, UserMixin):
     daily_calorie_goal = db.Column(db.Integer, nullable=True)
     saved_calories = db.relationship('SavedCalories', backref='user', lazy=True)
     email = db.Column(db.String(150), unique=True, nullable=False)
+    is_admin = db.Column(db.Boolean, default=False)
+
+class AdminUser(ModelView):
+    def is_accessible(self):
+        return current_user.is_authenticated and current_user.is_admin
+
+    def inaccessible_callback(self, name, **kwargs):
+        return redirect(url_for('login', next=request.url))
 
 @app.before_request
 def require_login():
@@ -583,3 +592,13 @@ def get_motivational_tip():
         "Success is the sum of small efforts, repeated day in and day out."
     ]
     return random.choice(quotes)
+
+def create_admin_user():
+    if not User.query.filter_by(username=config.ADMIN_USERNAME).first():
+        hashed_password = bcrypt.generate_password_hash(config.ADMIN_PASSWORD).decode('utf-8')
+        admin_user = User(
+            username=config.ADMON_USERNAME,
+            password=hashed_password,
+            is_admin=True)
+        db.session.add(admin_user)
+        db.session.commit()
