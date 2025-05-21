@@ -1,6 +1,29 @@
 {% extends "base.html" %}
 
 {% block content %}
+<style>
+.expanded-ring {
+    box-shadow: 0 0 0 2px #3b82f6;
+}
+.expandable-content-inner {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    padding: 0;
+    transition: max-height 1.5s cubic-bezier(.4,2,.6,1), opacity 0.9s, padding 0.9s;
+}
+.expandable-content-inner.open {
+    max-height: 800px;
+    opacity: 1;
+    padding: 1rem;
+}
+.expandable-td {
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    transition: none;
+}
+</style>
 <div class="flex flex-col items-center justify-center min-h-[60vh]">
     <div class="w-full max-w-2xl bg-zinc-800 border border-zinc-700 rounded-lg shadow p-6">
         <h2 class="text-2xl font-bold text-zinc-100 mb-6 text-center">Saved Calorie Entries</h2>
@@ -26,8 +49,19 @@
                     {% for entry in saved_data %}
                     <tr class="hover:bg-zinc-700/50 transition">
                         <td class="py-2 px-2 border-b border-zinc-700 text-left">
-                            <button type="button" onclick="toggleFoods('{{ entry.id }}')" class="text-blue-400 underline focus:outline-none">
-                                <span id="toggle-icon-{{ entry.id }}">&#9654;</span> {{ entry.date }}
+                            <button
+                                type="button"
+                                onclick="toggleFoods('{{ entry.id }}')"
+                                class="flex items-center gap-2 w-full px-3 py-2 rounded-lg bg-zinc-700/40 hover:bg-blue-700/30 focus:outline-none transition group"
+                                aria-expanded="false"
+                                id="expand-btn-{{ entry.id }}"
+                            >
+                                <span
+                                    id="toggle-icon-{{ entry.id }}"
+                                    class="transition-transform duration-200 text-blue-400 text-lg"
+                                    style="display: inline-block;"
+                                >&#9654;</span>
+                                <span class="font-semibold text-zinc-100">{{ entry.date }}</span>
                             </button>
                         </td>
                         <td class="py-2 px-2 border-b border-zinc-700">
@@ -48,22 +82,38 @@
                             <a href="{{ url_for('saved', edit=entry.id) }}" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-xs ml-2">Edit</a>
                         </td>
                     </tr>
-                    <tr id="foods-{{ entry.id }}" class="hidden">
-                        <td colspan="3" class="bg-zinc-900 border-b border-zinc-700">
-                            <div>
-                                <strong>Foods:</strong>
-                                <ul class="mb-2">
-                                    {% for food in entry.foods %}
-                                        <li>{{ food.name }} - {{ food.calories }} kcal</li>
-                                    {% else %}
-                                        <li class="text-zinc-400">No foods added yet.</li>
-                                    {% endfor %}
-                                </ul>
-                                <form action="{{ url_for('add_food', entry_id=entry.id) }}" method="POST" class="flex flex-wrap gap-2 mt-2 justify-center items-center">
-                                    <input type="text" name="food_name" placeholder="Food name" required class="bg-zinc-800 border border-zinc-700 text-zinc-100 rounded px-2 py-1" />
-                                    <input type="number" name="food_calories" min="0" placeholder="Calories" required class="bg-zinc-800 border border-zinc-700 text-zinc-100 rounded px-2 py-1" />
-                                    <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs">Add Food</button>
-                                </form>
+                    <tr id="foods-{{ entry.id }}">
+                        <td colspan="3" id="foods-td-{{ entry.id }}" class="expandable-td">
+                            <div id="foods-content-{{ entry.id }}" class="expandable-content-inner rounded-lg bg-black border border-zinc-700 p-0 shadow-inner">
+                                <div class="rounded-lg bg-zinc-800 border border-zinc-700 p-4 shadow-inner">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="font-semibold text-zinc-200 text-lg">Foods for {{ entry.date }}</span>
+                                        <span class="text-sm text-zinc-400">Total: <span class="font-semibold text-blue-400">{{ entry.total_calories }} kcal</span></span>
+                                    </div>
+                                    <table class="w-full text-left mb-2">
+                                        <thead>
+                                            <tr>
+                                                <th class="py-1 px-2 text-zinc-400 text-xs font-medium">Food</th>
+                                                <th class="py-1 px-2 text-zinc-400 text-xs font-medium">Calories</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for food in entry.foods %}
+                                                <tr class="hover:bg-zinc-700/50 transition">
+                                                    <td class="py-1 px-2 text-zinc-100">{{ food.name }}</td>
+                                                    <td class="py-1 px-2 text-blue-300">{{ food.calories }} kcal</td>
+                                                </tr>
+                                            {% else %}
+                                                <tr>
+                                                    <td colspan="2" class="py-2 px-2 text-zinc-400 text-center">No foods added yet.</td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                    <div class="flex justify-end">
+                                        <span class="text-xs text-zinc-400 italic">Last updated: {{ entry.updated_at if entry.updated_at else entry.date }}</span>
+                                    </div>
+                                </div>
                             </div>
                         </td>
                     </tr>
@@ -71,17 +121,27 @@
                 </tbody>
             </table>
             <script>
-                function toggleFoods(id) {
-                    const row = document.getElementById('foods-' + id);
-                    const icon = document.getElementById('toggle-icon-' + id);
-                    if (row.classList.contains('hidden')) {
-                        row.classList.remove('hidden');
-                        icon.innerHTML = "&#9660;";
-                    } else {
-                        row.classList.add('hidden');
-                        icon.innerHTML = "&#9654;";
-                    }
+            function toggleFoods(id) {
+                const tr = document.getElementById('foods-' + id);
+                const content = document.getElementById('foods-content-' + id);
+                const icon = document.getElementById('toggle-icon-' + id);
+                const btn = document.getElementById('expand-btn-' + id);
+
+                // Use the .open class to determine state
+                if (content.classList.contains('open')) {
+                    // COLLAPSE
+                    content.classList.remove('open');
+                    icon.innerHTML = "&#9654;";
+                    btn.setAttribute('aria-expanded', 'false');
+                    btn.classList.remove('expanded-ring');
+                } else {
+                    // EXPAND
+                    content.classList.add('open');
+                    icon.innerHTML = "&#9660;";
+                    btn.setAttribute('aria-expanded', 'true');
+                    btn.classList.add('expanded-ring');
                 }
+            }
             </script>
         {% else %}
             <div class="text-center text-zinc-400 py-8">
