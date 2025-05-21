@@ -15,6 +15,7 @@ from calorie_tracker import bcrypt
 from calorie_tracker import login_manager
 from flask_mail import Message
 from flask_admin.contrib.sqla import ModelView
+from flask_admin.contrib.fileadmin import FileAdmin
 from flask_admin import AdminIndexView
 from wtforms import PasswordField
 from calorie_tracker import mail
@@ -83,6 +84,13 @@ class AdminUser(ModelView):
         return redirect(url_for('login', next=request.url))
 
 class AdminView(AdminIndexView):
+    def is_accessible(self):
+        return current_user.is_authenticated and current_user.is_admin
+
+    def inaccessible_callback(self, name, **kwargs):
+        return redirect(url_for('login', next=request.url))
+
+class FileAdminView(FileAdmin):
     def is_accessible(self):
         return current_user.is_authenticated and current_user.is_admin
 

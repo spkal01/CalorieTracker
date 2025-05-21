@@ -14,7 +14,7 @@ app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///calorie_tracker.db'
 
 # App configuration
-UPLOAD_FOLDER = './calorie_tracker/static/uploads/'
+UPLOAD_FOLDER = os.path.abspath(os.path.join(os.path.dirname(__file__), 'static', 'uploads'))
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 app.config['SECRET_KEY'] = config.SECRET_KEY
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -47,9 +47,10 @@ def cleanup_uploads(folder, max_age_seconds):
 
 # Import routes
 from calorie_tracker import routes
-from calorie_tracker.routes import User, create_admin_user, AdminUser, AdminView
+from calorie_tracker.routes import User, create_admin_user, AdminUser, AdminView, FileAdminView
 admin = Admin(app, name='Calorie Tracker Admin', template_mode='bootstrap3', index_view=AdminView())
 admin.add_view(AdminUser(User, db.session, name='Users'))
+admin.add_view(FileAdminView(UPLOAD_FOLDER, name='Uploads'))
 with app.app_context():
     create_admin_user()
 # Cleanup old files every 24 hours
