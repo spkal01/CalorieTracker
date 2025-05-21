@@ -33,6 +33,9 @@
                     <div id="dropdown-menu" class="absolute hidden bg-zinc-800 mt-2 rounded shadow-lg py-2 w-48 z-10 right-0 transition-all duration-300 opacity-0 scale-95 pointer-events-none">
                         <a href="{{ url_for('settings')}}" class="block px-4 py-2 text-sm text-white hover:bg-zinc-700">Settings</a>
                         <a href="{{ url_for('profile')}}" class="block px-4 py-2 text-sm text-white hover:bg-zinc-700">Profile</a>
+                        {% if current_user.is_admin %}
+                        <a href="{{ url_for('admin.index') }}" class="block px-4 py-2 text-sm text-white hover:bg-zinc-700">Admin Dashboard</a>
+                        {% endif %}
                         <a href="{{ url_for('logout')}}" class="block px-4 py-2 text-sm text-white hover:bg-zinc-700">Logout</a>
                     </div>
                 </div>
@@ -52,6 +55,9 @@
                 <div class="border-t border-zinc-700 pt-2">
                     <a href="{{ url_for('settings')}}" class="block py-2 text-white hover:text-blue-400 transition text-lg">Settings</a>
                     <a href="{{ url_for('profile')}}" class="block py-2 text-white hover:text-blue-400 transition text-lg">Profile</a>
+                    {% if current_user.is_admin %}
+                    <a href="{{ url_for('admin.index')}}" class="block py-2 text-white hover:text-blue-400 transition text-lg">Admin Dashboard</a>
+                    {% endif %}
                     <a href="{{ url_for('logout')}}" class="block py-2 text-white hover:text-blue-400 transition text-lg">Logout</a>
                 </div>
             </div>

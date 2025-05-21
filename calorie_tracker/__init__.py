@@ -8,6 +8,7 @@ from flask_mail import Mail
 from calorie_tracker import config
 from flask_admin import Admin
 from flask_admin.contrib.sqla import ModelView
+from flask_migrate import Migrate
 app = Flask(__name__)
 # Configure the database
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///calorie_tracker.db'
@@ -30,6 +31,7 @@ app.config['MAIL_USE_SSL'] = config.MAIL_USE_SSL
 app.config['MAIL_DEFAULT_SENDER'] = config.MAIL_DEFAULT_SENDER
 
 mail = Mail(app)
+migrate = Migrate(app, db)
 # Utility function to check allowed file types
 def allowed_file(filename):
     return '.' in filename and \
@@ -45,9 +47,9 @@ def cleanup_uploads(folder, max_age_seconds):
 
 # Import routes
 from calorie_tracker import routes
-from calorie_tracker.routes import User, create_admin_user
-admin = Admin(app, name='Calorie Tracker Admin', template_mode='bootstrap3')
-admin.add_view(ModelView(User, db.session, name='Users'))
+from calorie_tracker.routes import User, create_admin_user, AdminUser, AdminView
+admin = Admin(app, name='Calorie Tracker Admin', template_mode='bootstrap3', index_view=AdminView())
+admin.add_view(AdminUser(User, db.session, name='Users'))
 with app.app_context():
     create_admin_user()
 # Cleanup old files every 24 hours

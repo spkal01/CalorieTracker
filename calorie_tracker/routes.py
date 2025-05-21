@@ -15,6 +15,7 @@ from calorie_tracker import bcrypt
 from calorie_tracker import login_manager
 from flask_mail import Message
 from flask_admin.contrib.sqla import ModelView
+from flask_admin import AdminIndexView
 from calorie_tracker import mail
 import random
 from itsdangerous import URLSafeTimedSerializer
@@ -60,6 +61,13 @@ class User(db.Model, UserMixin):
     is_admin = db.Column(db.Boolean, default=False)
 
 class AdminUser(ModelView):
+    def is_accessible(self):
+        return current_user.is_authenticated and current_user.is_admin
+
+    def inaccessible_callback(self, name, **kwargs):
+        return redirect(url_for('login', next=request.url))
+
+class AdminView(AdminIndexView):
     def is_accessible(self):
         return current_user.is_authenticated and current_user.is_admin
 
@@ -597,8 +605,9 @@ def create_admin_user():
     if not User.query.filter_by(username=config.ADMIN_USERNAME).first():
         hashed_password = bcrypt.generate_password_hash(config.ADMIN_PASSWORD).decode('utf-8')
         admin_user = User(
-            username=config.ADMON_USERNAME,
+            username=config.ADMIN_USERNAME,
             password=hashed_password,
+            email=config.ADMIN_EMAIL,
             is_admin=True)
         db.session.add(admin_user)
         db.session.commit()
