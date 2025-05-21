@@ -2,7 +2,7 @@ import os
 import re
 import cv2
 from datetime import datetime as dt, timedelta
-from flask import flash, render_template, request, redirect, url_for, session
+from flask import flash, render_template, request, redirect, url_for, session, jsonify
 from werkzeug.utils import secure_filename
 from calorie_tracker import app, allowed_file, cleanup_uploads
 import openai
@@ -428,11 +428,13 @@ def diet():
         flash('Please set your daily calorie goal in settings.', 'warning')
         return redirect(url_for('settings'))
     daily_calorie_goal = current_user.daily_calorie_goal or 2000  # fallback value
+    motivational_tip = get_motivational_tip()
 
     return render_template(
         'diet.html',
         calories_consumed=calories_consumed,
-        daily_calorie_goal=daily_calorie_goal
+        daily_calorie_goal=daily_calorie_goal,
+        motivational_tip=motivational_tip
     )
 
 @login_manager.user_loader
@@ -455,6 +457,12 @@ def verify_reset_token(token, expiration=3600):
     except Exception:
         return None
     return email
+
+@app.route('/api/ai-analysis')
+@login_required
+def api_ai_analysis():
+    analysis = get_ai_analysis()  # This returns markdown
+    return jsonify({'analysis': analysis})
 
 def ai_reccomend_daily_calories():
     age = current_user.age
@@ -496,3 +504,82 @@ def ai_reccomend_daily_calories():
     )
 
     return response.choices[0].message.content
+
+def get_ai_analysis():
+    weight = current_user.weight
+    height = current_user.height
+    age = current_user.age
+    gender = current_user.gender
+    calorie_goal = current_user.daily_calorie_goal
+    if not all([weight, height, age, gender, calorie_goal]):
+        flash('Please set your profile information in settings.', 'error')
+        return redirect(url_for('settings'))
+
+    today = dt.now().strftime("%Y-%m-%d")
+    now_time = dt.now().strftime("%H:%M")
+    entry = SavedCalories.query.filter_by(date=today, user_id=current_user.id).first()
+    if not entry or not entry.food_items:
+        food_entries = {}
+    else:
+        food_entries = {food.name: food.calories for food in entry.food_items}
+
+    # Compose the prompt for OpenAI
+    prompt = (
+        f"You are a helpful nutrition assistant. "
+        f"Here is today's user data:\n"
+        f"- Date: {today}\n"
+        f"- Time: {now_time}\n"
+        f"- Age: {age}\n"
+        f"- Weight: {weight} kg\n"
+        f"- Height: {height} cm\n"
+        f"- Gender: {gender}\n"
+        f"- Daily Calorie Goal: {calorie_goal} kcal\n"
+        f"- Foods consumed today (name: calories): {food_entries}\n\n"
+        "Please provide a brief markdown-formatted analysis of the user's day so far, "
+        "including:\n"
+        "- A summary of their calorie intake\n"
+        "- At least one tip for improvement or encouragement\n"
+        "- Suggestions for the rest of the day if needed\n"
+        "Be concise, friendly, and use bullet points or sections where appropriate.\n"
+        "Do not include any unrelated information or disclaimers.\n"
+        "your response should be in markdown format and it should be stylish and playfull but nothing too much.\n"
+        "Do not show the age weight height and gender in the response.\n"
+    )
+
+    response = openai.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "You are a helpful nutrition and calorie tracking assistant."},
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.7,
+        max_tokens=400
+    )
+
+    return response.choices[0].message.content
+
+
+def get_motivational_tip():
+    quotes = [
+        "Eat to fuel your body, not to feed your emotions.",
+        "Small changes every day add up to big results.",
+        "Your body deserves the best. Treat it with respect.",
+        "Healthy eating is a form of self-respect.",
+        "Don’t count the days, make the days count—with good choices.",
+        "You don’t have to eat less, you just have to eat right.",
+        "The food you eat can be either the safest and most powerful form of medicine or the slowest form of poison.",
+        "Take care of your body. It’s the only place you have to live.",
+        "Every healthy choice is a victory.",
+        "Discipline is choosing between what you want now and what you want most.",
+        "A healthy outside starts from the inside.",
+        "Progress, not perfection.",
+        "You are what you eat, so don’t be fast, cheap, easy, or fake.",
+        "Your diet is a bank account. Good food choices are good investments.",
+        "Strive for progress, not perfection.",
+        "Eat better, feel better, live better.",
+        "The secret of getting ahead is getting started.",
+        "Don’t dig your grave with your own knife and fork.",
+        "It’s not a diet, it’s a lifestyle.",
+        "Success is the sum of small efforts, repeated day in and day out."
+    ]
+    return random.choice(quotes)

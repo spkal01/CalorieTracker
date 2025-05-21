@@ -2,30 +2,65 @@
 
 {% block content %}
 <div class="flex flex-col items-center justify-center min-h-[60vh]">
-    <div class="w-full max-w-md bg-zinc-800 border border-zinc-700 rounded-lg shadow p-4">
-        <h2 class="text-xl font-bold text-zinc-100 mb-4 text-center">Today's Calorie Intake</h2>
-        <div class="flex flex-col items-center mb-4">
-            <!-- Progress Bar Widget -->
-            <div class="w-full">
-                <div class="flex justify-between mb-1">
-                    <span class="text-xs text-zinc-300 font-medium">Consumed</span>
-                    <span class="text-xs text-zinc-300 font-medium">{{ calories_consumed }} / {{ daily_calorie_goal }} kcal</span>
+    <div class="w-full max-w-5xl bg-zinc-800 border border-zinc-700 rounded-lg shadow p-6">
+        <!-- Motivational Tip: Centered and Wide -->
+        <div class="flex justify-center mb-8">
+            <div class="w-full max-w-2xl bg-blue-900/40 border border-blue-700 rounded-lg p-6 text-center">
+                <span class="block text-blue-300 font-semibold mb-1 text-lg">Motivational Tip</span>
+                <span class="text-zinc-100 italic text-base">
+                    {{ motivational_tip|default("Small steps every day lead to big results in the end. Keep going!") }}
+                </span>
+            </div>
+        </div>
+        <h2 class="text-2xl font-bold text-zinc-100 mb-8 text-center">Today's Calorie Dashboard</h2>
+        <div class="flex flex-col md:flex-row gap-8">
+            <!-- Left: Chart & Stats -->
+            <div class="flex-1 flex flex-col items-center justify-center">
+                <canvas id="caloriePie" width="180" height="180"></canvas>
+                <div class="mt-6 text-center">
+                    <span class="text-2xl font-semibold text-zinc-100">{{ calories_consumed }}</span>
+                    <span class="text-zinc-400">/</span>
+                    <span class="text-zinc-400">{{ daily_calorie_goal }} kcal</span>
                 </div>
-                <div class="w-full bg-zinc-700 rounded-full h-4 overflow-hidden">
-                    <div class="bg-blue-600 h-4 rounded-full transition-all duration-500"
-                         style="width: {{ (calories_consumed / daily_calorie_goal * 100) if daily_calorie_goal else 0 }}%">
-                    </div>
+                <div class="mt-2 text-base text-zinc-400">
+                    {% if calories_consumed < daily_calorie_goal %}
+                        {{ daily_calorie_goal - calories_consumed }} kcal left to your goal!
+                    {% elif calories_consumed == daily_calorie_goal %}
+                        You've hit your goal! 🎉
+                    {% else %}
+                        {{ calories_consumed - daily_calorie_goal }} kcal over your goal.
+                    {% endif %}
                 </div>
             </div>
-            <!-- Pie Chart Widget -->
-            <canvas id="caloriePie" width="120" height="120" class="mt-4"></canvas>
+            <!-- Right: AI Analysis -->
+            <div class="flex-1 flex flex-col justify-between">
+                <div class="bg-zinc-900/60 border border-zinc-700 rounded-lg p-4 mb-4 text-left overflow-auto prose prose-invert max-w-none transition-all duration-700 ease-in-out"
+                     id="aiAnalysisBox"
+                     style="max-height: 120px; opacity: 1;">
+                    <span class="block text-blue-300 font-semibold mb-2">AI Analysis for Today</span>
+                    <div id="aiAnalysisLoading" class="flex items-center gap-2 text-zinc-400 text-sm">
+                        <svg class="animate-spin h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                        </svg>
+                        Loading statistics...
+                    </div>
+                    <div id="aiAnalysisContent" class="text-zinc-100 text-sm hidden transition-opacity duration-700"></div>
+                </div>
+            </div>
         </div>
-        <div class="mt-4 text-center">
-            <a href="{{ url_for('saved') }}" class="text-blue-400 hover:underline font-semibold text-sm">View Details</a>
+        <!-- Centered View Details Button at the bottom -->
+        <div class="flex justify-center mt-8">
+            <a href="{{ url_for('saved') }}"
+               class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded-lg text-lg shadow transition">
+                View Details
+            </a>
         </div>
     </div>
 </div>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function() {
     const consumed = Number("{{ calories_consumed|default(0, true) }}");
@@ -40,7 +75,7 @@ document.addEventListener("DOMContentLoaded", function() {
     } else {
         chartData = [consumed, remaining];
         chartLabels = ['Consumed', 'Remaining'];
-        chartColors = ['#2563eb', '#27272a'];
+        chartColors = ['#2563eb', '#a5b4fc']; // Lighter blue for remaining
     }
 
     new Chart(document.getElementById('caloriePie').getContext('2d'), {
@@ -68,6 +103,34 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         }
     });
+
+    // Fetch AI analysis asynchronously (AJAX)
+    fetch('/api/ai-analysis')
+        .then(response => response.json())
+        .then(data => {
+            const loadingDiv = document.getElementById('aiAnalysisLoading');
+            const contentDiv = document.getElementById('aiAnalysisContent');
+            const box = document.getElementById('aiAnalysisBox');
+            contentDiv.innerHTML = marked.parse(data.analysis);
+
+            // Animate: fade out loading, fade in content, expand box
+            loadingDiv.classList.add('opacity-0');
+            setTimeout(() => {
+                loadingDiv.classList.add('hidden');
+                contentDiv.classList.remove('hidden');
+                contentDiv.classList.add('opacity-0');
+                // Expand box
+                box.style.maxHeight = "1200px";
+                // Fade in content
+                setTimeout(() => {
+                    contentDiv.classList.remove('opacity-0');
+                    contentDiv.classList.add('transition-opacity', 'duration-700');
+                }, 100);
+            }, 400);
+        })
+        .catch(() => {
+            document.getElementById('aiAnalysisLoading').innerText = "Failed to load analysis.";
+        });
 });
 </script>
 {% endblock %}
