@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex flex-col items-center justify-center min-h-[60vh]">
+    <div class="w-full max-w-md bg-zinc-800 border border-zinc-700 rounded-lg shadow p-4">
+        <h2 class="text-xl font-bold text-zinc-100 mb-4 text-center">Today's Calorie Intake</h2>
+        <div class="flex flex-col items-center mb-4">
+            <!-- Progress Bar Widget -->
+            <div class="w-full">
+                <div class="flex justify-between mb-1">
+                    <span class="text-xs text-zinc-300 font-medium">Consumed</span>
+                    <span class="text-xs text-zinc-300 font-medium">{{ calories_consumed }} / {{ daily_calorie_goal }} kcal</span>
+                </div>
+                <div class="w-full bg-zinc-700 rounded-full h-4 overflow-hidden">
+                    <div class="bg-blue-600 h-4 rounded-full transition-all duration-500"
+                         style="width: {{ (calories_consumed / daily_calorie_goal * 100) if daily_calorie_goal else 0 }}%">
+                    </div>
+                </div>
+            </div>
+            <!-- Pie Chart Widget -->
+            <canvas id="caloriePie" width="120" height="120" class="mt-4"></canvas>
+        </div>
+        <div class="mt-4 text-center">
+            <a href="{{ url_for('saved') }}" class="text-blue-400 hover:underline font-semibold text-sm">View Details</a>
+        </div>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const consumed = Number("{{ calories_consumed|default(0, true) }}");
+    const goal = Number("{{ daily_calorie_goal|default(1, true) }}");
+    const remaining = Math.max(goal - consumed, 0);
+
+    let chartData, chartLabels, chartColors;
+    if (consumed === 0) {
+        chartData = [1];
+        chartLabels = ['No Data'];
+        chartColors = ['#3f3f46'];
+    } else {
+        chartData = [consumed, remaining];
+        chartLabels = ['Consumed', 'Remaining'];
+        chartColors = ['#2563eb', '#27272a'];
+    }
+
+    new Chart(document.getElementById('caloriePie').getContext('2d'), {
+        type: 'doughnut',
+        data: {
+            labels: chartLabels,
+            datasets: [{
+                data: chartData,
+                backgroundColor: chartColors,
+                borderWidth: 0
+            }]
+        },
+        options: {
+            cutout: '75%',
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            if (consumed === 0) return "No calories consumed";
+                            return context.label + ': ' + context.parsed + ' kcal';
+                        }
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

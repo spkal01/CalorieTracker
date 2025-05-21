@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex flex-col items-center justify-center min-h-[60vh] px-2">
+    <div class="w-full max-w-md bg-zinc-800 border border-zinc-700 rounded-lg shadow p-4 sm:p-6">
+        <h2 class="text-xl sm:text-2xl font-bold text-zinc-100 mb-4 sm:mb-6 text-center">Settings</h2>
+        <form method="POST" class="space-y-4">
+            <div>
+                <label for="daily_calorie_goal" class="block text-zinc-300 mb-1 text-sm">Daily Calorie Goal (kcal)</label>
+                <input type="number" id="daily_calorie_goal" name="daily_calorie_goal" min="1"
+                    value="{{ daily_calorie_goal if daily_calorie_goal else '' }}"
+                    class="w-full bg-zinc-900 border border-zinc-700 text-zinc-100 rounded px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                {% if daily_calorie_goal %}
+                <p class="text-green-400 text-xs mt-1">Current: {{ daily_calorie_goal }} kcal</p>
+                {% endif %}
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label for="age" class="block text-zinc-300 mb-1 text-sm">Age</label>
+                    <input type="number" id="age" name="age" min="1"
+                        value="{{ age if age else '' }}"
+                        class="w-full bg-zinc-900 border border-zinc-700 text-zinc-100 rounded px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    {% if age %}
+                    <p class="text-green-400 text-xs mt-1">Current: {{ age }} yrs</p>
+                    {% endif %}
+                </div>
+                <div>
+                    <label for="weight" class="block text-zinc-300 mb-1 text-sm">Weight (kg)</label>
+                    <input type="number" id="weight" name="weight" min="1" step="0.1"
+                        value="{{ weight if weight else '' }}"
+                        class="w-full bg-zinc-900 border border-zinc-700 text-zinc-100 rounded px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    {% if weight %}
+                    <p class="text-green-400 text-xs mt-1">Current: {{ weight }} kg</p>
+                    {% endif %}
+                </div>
+                <div>
+                    <label for="height" class="block text-zinc-300 mb-1 text-sm">Height (cm)</label>
+                    <input type="number" id="height" name="height" min="1" step="0.1"
+                        value="{{ height if height else '' }}"
+                        class="w-full bg-zinc-900 border border-zinc-700 text-zinc-100 rounded px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    {% if height %}
+                    <p class="text-green-400 text-xs mt-1">Current: {{ height }} cm</p>
+                    {% endif %}
+                </div>
+                <div>
+                    <label for="gender" class="block text-zinc-300 mb-1 text-sm">Gender</label>
+                    <select id="gender" name="gender"
+                        class="w-full bg-zinc-900 border border-zinc-700 text-zinc-100 rounded px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="" {% if not gender %}selected{% endif %}>Select</option>
+                        <option value="male" {% if gender == 'male' %}selected{% endif %}>Male</option>
+                        <option value="female" {% if gender == 'female' %}selected{% endif %}>Female</option>
+                        <option value="other" {% if gender == 'other' %}selected{% endif %}>Other</option>
+                    </select>
+                    {% if gender %}
+                    <p class="text-green-400 text-xs mt-1">Current: {{ gender|capitalize }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded transition text-sm">
+                Save Settings
+            </button>
+        </form>
+        <div class="mt-6 text-center">
+            <form method="post" action="{{ url_for('settings') }}" id="ai-suggest-form">
+                <button type="submit" name="ai_suggest" value="1"
+                    id="ai-suggest-btn"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    {% if not (age and weight and height and gender) %}disabled{% endif %}>
+                    Get AI Calorie Goal Recommendation
+                </button>
+            </form>
+            <!-- Loading spinner -->
+            <div id="ai-loading" class="flex flex-col items-center justify-center mt-4 hidden">
+                <svg class="animate-spin h-6 w-6 text-blue-400 mx-auto mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                </svg>
+                <span class="text-blue-400 text-sm">Fetching AI recommendation...</span>
+            </div>
+            {% if ai_suggestion %}
+            <div class="mt-4 bg-zinc-700 rounded p-3 text-zinc-100 text-center overflow-x-auto">
+                <h3 class="font-semibold mb-2 text-base text-green-400">AI Recommendation</h3>
+                <div id="ai-markdown-content"></div>
+                <script>
+                    document.getElementById('ai-markdown-content').innerHTML = marked.parse(`{{ ai_suggestion | escape | replace('\n', '\\n') }}`);
+                </script>
+            </div>
+            {% endif %}
+            {% if not (age and weight and height and gender) %}
+            <p class="text-xs text-red-400 mt-2">Please fill in age, weight, height, and gender to get an AI recommendation.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+<script>
+    // Show loading spinner on AI suggestion form submit
+    document.getElementById('ai-suggest-form').addEventListener('submit', function() {
+        document.getElementById('ai-loading').classList.remove('hidden');
+    });
+</script>
+{% endblock %}

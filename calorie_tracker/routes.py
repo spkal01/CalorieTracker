@@ -49,6 +49,11 @@ class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
     password = db.Column(db.String(150), nullable=False)
+    gender = db.Column(db.String(10), nullable=True)
+    age = db.Column(db.Integer, nullable=True)
+    weight = db.Column(db.Float, nullable=True)
+    height = db.Column(db.Float, nullable=True)
+    daily_calorie_goal = db.Column(db.Integer, nullable=True)
     saved_calories = db.relationship('SavedCalories', backref='user', lazy=True)
     email = db.Column(db.String(150), unique=True, nullable=False)
 
@@ -270,6 +275,7 @@ def custom_calories():
                                 ],
                             }
                         ],
+                        temperature=0,
                     )
 
                     ai_result = response.output_text
@@ -330,12 +336,50 @@ def get_saved_data():
     return result
 
 
-@app.route('/profile', methods=['GET','POST'])
+@app.route('/profile')
 @login_required
 def profile():
     username = current_user.username
     email = current_user.email
     return render_template('profile.html', username=username, email=email)
+
+@app.route('/settings', methods=['GET', 'POST'])
+@login_required
+def settings():
+    ai_suggestion = None
+    if request.method == 'POST':
+        if request.form.get('ai_suggest'):
+            ai_suggestion = ai_reccomend_daily_calories()
+        else:
+            daily_calorie_goal = request.form.get('daily_calorie_goal')
+            if daily_calorie_goal:
+                current_user.daily_calorie_goal = int(daily_calorie_goal)
+                db.session.commit()
+                flash('Daily calorie goal updated!', 'success')
+            else:
+                flash('Please provide a valid calorie goal.', 'error')
+            age = request.form.get('age')
+            weight = request.form.get('weight')
+            height = request.form.get('height')
+            gender = request.form.get('gender')
+            if age and weight and height and gender:
+                current_user.age = int(age)
+                current_user.weight = float(weight)
+                current_user.height = float(height)
+                current_user.gender = str(gender)
+                db.session.commit()
+                flash('Profile updated!', 'success')
+            else:
+                flash('Please provide valid age, weight, and height.', 'error')
+    return render_template(
+        'settings.html',
+        daily_calorie_goal=current_user.daily_calorie_goal,
+        age=current_user.age,
+        weight=current_user.weight,
+        height=current_user.height,
+        gender=current_user.gender,
+        ai_suggestion=ai_suggestion
+    )
 
 def push_data(calories, date=dt.now().strftime("%Y-%m-%d"), food_name="Custom"):
     entry = SavedCalories.query.filter_by(date=date, user_id=current_user.id).first()
@@ -374,6 +418,23 @@ def edit_data(entry_id):
         flash('No data found for the given entry.', 'error')
     return redirect(url_for('saved'))
 
+@app.route('/diet', methods=['GET', 'POST'])
+@login_required
+def diet():
+    today = dt.now().strftime("%Y-%m-%d")
+    entry = SavedCalories.query.filter_by(date=today, user_id=current_user.id).first()
+    calories_consumed = sum(f.calories for f in entry.food_items) if entry else 0
+    if current_user.daily_calorie_goal is None:
+        flash('Please set your daily calorie goal in settings.', 'warning')
+        return redirect(url_for('settings'))
+    daily_calorie_goal = current_user.daily_calorie_goal or 2000  # fallback value
+
+    return render_template(
+        'diet.html',
+        calories_consumed=calories_consumed,
+        daily_calorie_goal=daily_calorie_goal
+    )
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
@@ -394,3 +455,44 @@ def verify_reset_token(token, expiration=3600):
     except Exception:
         return None
     return email
+
+def ai_reccomend_daily_calories():
+    age = current_user.age
+    weight = current_user.weight
+    height = current_user.height
+    if not all([age, weight, height]):
+        flash('Please provide your age, weight, and height in settings.', 'warning')
+        return redirect(url_for('settings'))
+
+
+    response = openai.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are a calorie calculator assistant. Use the Mifflin-St Jeor equation "
+                    "and a sedentary activity level (1.2 multiplier) to calculate daily caloric needs. "
+                    "Only output values for maintenance, deficit (20%), and surplus (20%) in kcal. "
+                    "Label each with percentage differences. Do not add any explanations or extra text."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"Age: {age}\n"
+                    f"Weight: {weight} kg\n"
+                    f"Height: {height} cm\n\n"
+                    "Please provide daily caloric needs for:\n"
+                    "- Maintenance\n"
+                    "- 20% Deficit (cutting)\n"
+                    "- 20% Surplus (bulking)\n\n"
+                    "Show the kcal values and percentage differences only. No explanation or other output. "
+                    "Round all calorie values to the nearest decade (e.g., 1874 → 1870)."
+                ),
+            },
+        ],
+        temperature=0
+    )
+
+    return response.choices[0].message.content
