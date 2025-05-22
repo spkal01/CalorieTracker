@@ -64,6 +64,21 @@ def logout():
     flash('You have been logged out.', 'success')
     return redirect(url_for('login'))
 
+def password_strength_score(password):
+    import re
+    score = 0
+    if len(password) >= 8:
+        score += 1
+    if re.search(r'[A-Z]', password):
+        score += 1
+    if re.search(r'[a-z]', password):
+        score += 1
+    if re.search(r'\d', password):
+        score += 1
+    if re.search(r'[^A-Za-z0-9]', password):
+        score += 1
+    return score
+
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'POST':
@@ -73,6 +88,12 @@ def signup():
         if password != confirm_password:
             flash('Passwords do not match!', 'error')
             return render_template('login/signup_step1.html')
+        score = password_strength_score(password)
+        if score < 3:
+            flash('Password must be at least medium strength (8+ chars, upper, lower, digit or special char).', 'error')
+            return render_template('login/signup_step1.html')
+        if score == 3:
+            flash('Warning: Medium strength password. Consider using a stronger password for better security.', 'warning')
         if User.query.filter_by(username=username).first():
             flash('Username already exists.', 'error')
             return render_template('login/signup_step1.html')

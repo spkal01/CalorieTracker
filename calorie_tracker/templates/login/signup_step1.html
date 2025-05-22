@@ -9,8 +9,14 @@
         <input type="text" name="username" required class="w-full bg-zinc-900 border border-zinc-700 text-zinc-100 rounded px-3 py-2" />
       </div>
       <div>
-        <label class="block text-zinc-300 mb-1">Password</label>
-        <input type="password" name="password" required class="w-full bg-zinc-900 border border-zinc-700 text-zinc-100 rounded px-3 py-2" />
+        <label for="password" class="block text-zinc-300 mb-1">Password</label>
+        <input type="password" id="password" name="password"
+               class="w-full bg-zinc-900 border border-zinc-700 text-zinc-100 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-600 transition"
+               required autocomplete="new-password" />
+        <div class="h-2 mt-2 rounded bg-zinc-700 overflow-hidden">
+          <div id="password-strength-bar" class="h-2 rounded transition-all duration-300"></div>
+        </div>
+        <div id="password-strength-label" class="mt-1 text-sm font-medium"></div>
       </div>
       <div>
         <label class="block text-zinc-300 mb-1">Confirm Password</label>
@@ -20,4 +26,84 @@
     </form>
   </div>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const passwordInput = document.getElementById('password');
+    const bar = document.getElementById('password-strength-bar');
+    const label = document.getElementById('password-strength-label');
+    const form = passwordInput.closest('form');
+    let currentStrength = 0;
+
+    passwordInput.addEventListener('input', function() {
+        const val = passwordInput.value;
+        let score = 0;
+        if (val.length >= 8) score++;
+        if (/[A-Z]/.test(val)) score++;
+        if (/[a-z]/.test(val)) score++;
+        if (/\d/.test(val)) score++;
+        if (/[^A-Za-z0-9]/.test(val)) score++;
+        let strength = '';
+        let color = '';
+        let width = '0%';
+        switch(score) {
+            case 0:
+            case 1:
+                strength = 'Very Weak';
+                color = '#ef4444';
+                width = '20%';
+                break;
+            case 2:
+                strength = 'Weak';
+                color = '#f59e42';
+                width = '40%';
+                break;
+            case 3:
+                strength = 'Medium';
+                color = '#eab308';
+                width = '60%';
+                break;
+            case 4:
+                strength = 'Strong';
+                color = '#22c55e';
+                width = '80%';
+                break;
+            case 5:
+                strength = 'Very Strong';
+                color = '#16a34a';
+                width = '100%';
+                break;
+        }
+        currentStrength = score;
+        bar.style.width = width;
+        bar.style.background = color;
+        label.textContent = strength ? `Strength: ${strength}` : '';
+        label.style.color = color;
+
+        // Show warning if medium
+        let warning = document.getElementById('password-medium-warning');
+        if (!warning) {
+            warning = document.createElement('div');
+            warning.id = 'password-medium-warning';
+            warning.className = 'mt-1 text-xs text-yellow-400';
+            label.parentNode.appendChild(warning);
+        }
+        if (strength === 'Medium') {
+            warning.textContent = 'Warning: Medium strength password. Consider using a stronger password for better security.';
+            warning.style.display = 'block';
+        } else {
+            warning.style.display = 'none';
+        }
+    });
+
+    // Prevent form submission if password is below medium
+    form.addEventListener('submit', function(e) {
+        if (currentStrength < 3) {
+            e.preventDefault();
+            label.textContent = 'Password must be at least medium strength.';
+            label.style.color = '#ef4444';
+            passwordInput.focus();
+        }
+    });
+});
+</script>
 {% endblock %}
