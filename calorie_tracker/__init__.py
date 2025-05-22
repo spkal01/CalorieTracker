@@ -7,7 +7,6 @@ from flask_bcrypt import Bcrypt
 from flask_mail import Mail
 from calorie_tracker import config
 from flask_admin import Admin
-from flask_admin.contrib.sqla import ModelView
 from flask_migrate import Migrate
 
 app = Flask(__name__)
@@ -47,8 +46,9 @@ def cleanup_uploads(folder, max_age_seconds):
             os.remove(file_path)
 
 # Import routes
-from calorie_tracker import routes
-from calorie_tracker.routes import User, create_admin_user, AdminUser, AdminView, FileAdminView
+from calorie_tracker.routes import create_admin_user
+from calorie_tracker.models import User
+from calorie_tracker.admin_views import AdminUser, FileAdminView, AdminView
 admin = Admin(app, name='Calorie Tracker Admin', template_mode='bootstrap3', index_view=AdminView())
 admin.add_view(AdminUser(User, db.session, name='Users'))
 admin.add_view(FileAdminView(UPLOAD_FOLDER, name='Uploads'))
