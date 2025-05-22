@@ -39,9 +39,9 @@ def read_image_base64(image_path):
 
 @app.before_request
 def require_login():
-    public_routes = ['login', 'signup', 'static', 'signup_verify', 'signup_email', 'forgot_password', 'reset_password']  # Add other public endpoints if needed
+    public_routes = ['login', 'signup', 'static', 'signup_verify', 'signup_email', 'forgot_password', 'reset_password', 'landing']  # Add other public endpoints if needed
     if not current_user.is_authenticated and request.endpoint not in public_routes:
-        return redirect(url_for('login'))
+        return redirect(url_for('landing'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -608,3 +608,7 @@ def create_admin_user():
             is_admin=True)
         db.session.add(admin_user)
         db.session.commit()
+
+@app.route('/landing')
+def landing():
+    return render_template('landing.html')

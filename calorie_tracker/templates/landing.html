@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en" class="bg-zinc-900 text-zinc-100">
+<head>
+    <meta charset="UTF-8">
+    <title>Calorie Tracker - Welcome</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
+    <link rel="icon" href="{{ url_for('static', filename='images/favicon.png') }}" type="image/png">
+    <style>
+        .landing-main-box {
+            margin-top: 3rem;
+            margin-bottom: 3rem;
+            position: relative;
+            overflow: hidden;
+        }
+        /* Glass effect and smoother, more subtle shine animation */
+        .glass-shine::before {
+            content: '';
+            position: absolute;
+            top: -60%;
+            left: -60%;
+            width: 120%;
+            height: 120%;
+            background: linear-gradient(
+                120deg,
+                rgba(255,255,255,0.07) 0%,
+                rgba(255,255,255,0.16) 40%,
+                rgba(255,255,255,0.07) 100%
+            );
+            transform: skewX(-20deg);
+            animation: shine-move 4.5s cubic-bezier(0.4,0,0.2,1) infinite;
+            pointer-events: none;
+            z-index: 2;
+        }
+        @keyframes shine-move {
+            0% {
+                opacity: 0;
+                transform: skewX(-20deg) translateX(-100%);
+            }
+            10% {
+                opacity: 0.5;
+            }
+            50% {
+                opacity: 0.7;
+                transform: skewX(-20deg) translateX(100%);
+            }
+            90% {
+                opacity: 0.5;
+            }
+            100% {
+                opacity: 0;
+                transform: skewX(-20deg) translateX(120%);
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans antialiased">
+    <main class="flex-grow flex items-center justify-center">
+        <div class="landing-main-box w-full max-w-2xl mx-auto px-6 py-16 flex flex-col items-center bg-gradient-to-br from-zinc-800/90 via-zinc-900/90 to-blue-900/80 rounded-3xl shadow-2xl border border-zinc-700 glass-shine">
+            <h1 class="text-5xl sm:text-6xl font-extrabold text-center mb-4 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-green-400 to-blue-600 drop-shadow-lg">
+                Calorie Tracker
+            </h1>
+            <p class="text-xl sm:text-2xl text-zinc-300 text-center mb-10 max-w-2xl font-medium">
+                Track your calories, get AI-powered meal insights, and achieve your nutrition goals with a beautiful, modern interface.
+            </p>
+            <div class="flex flex-col sm:flex-row gap-4 mb-12 w-full justify-center">
+                <a href="{{ url_for('login') }}"
+                   class="flex-1 px-8 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-lg shadow-lg transition text-center">
+                    Log In
+                </a>
+                <a href="{{ url_for('signup') }}"
+                   class="flex-1 px-8 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold text-lg shadow-lg transition text-center">
+                    Sign Up
+                </a>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-8 mt-2 w-full">
+                <div class="bg-zinc-900/90 rounded-2xl p-7 border border-zinc-700 flex flex-col items-center shadow-lg hover:scale-105 transition">
+                    <span class="inline-block mb-3 text-3xl">🤖</span>
+                    <span class="font-semibold text-zinc-100 mb-1 text-lg">AI Meal Analysis</span>
+                    <span class="text-zinc-400 text-base text-center">Get instant feedback and nutrition tips powered by AI.</span>
+                </div>
+                <div class="bg-zinc-900/90 rounded-2xl p-7 border border-zinc-700 flex flex-col items-center shadow-lg hover:scale-105 transition">
+                    <span class="inline-block mb-3 text-3xl">📊</span>
+                    <span class="font-semibold text-zinc-100 mb-1 text-lg">Track & Visualize</span>
+                    <span class="text-zinc-400 text-base text-center">Log your meals, set goals, and visualize your progress.</span>
+                </div>
+            </div>
+        </div>
+    </main>
+    <footer class="text-center py-6 text-zinc-500 text-sm">
+        &copy; {{ year|default(2025) }} Calorie Tracker &mdash; Eat smart, live better.
+    </footer>
+</body>
+</html>
