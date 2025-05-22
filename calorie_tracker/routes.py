@@ -21,6 +21,7 @@ from wtforms import PasswordField
 from calorie_tracker import mail
 import random
 from itsdangerous import URLSafeTimedSerializer
+from email_validator import validate_email, EmailNotValidError
 
 
 # Initialize SQLAlchemy
@@ -146,6 +147,12 @@ def signup():
 def forgot_password():
     if request.method == 'POST':
         email = request.form.get('email')
+        try:
+            email_info = validate_email(email, check_deliverability=False)
+            email = email_info.normalized
+        except EmailNotValidError as e:
+            flash(str(e), 'error')
+            return render_template('login/forgot_password.html')
         user = User.query.filter_by(email=email).first()
         if user:
             token = generate_reset_token(email)
@@ -193,6 +200,12 @@ def signup_email():
         return redirect(url_for('signup'))
     if request.method == 'POST':
         email = request.form.get('email')
+        try:
+            email_info = validate_email(email, check_deliverability=True)
+            email = email_info.normalized
+        except EmailNotValidError as e:
+            flash(str(e), 'error')
+            return render_template('login/signup_step2.html')
         if User.query.filter_by(email=email).first():
             flash('Email already registered.', 'error')
             return render_template('login/signup_step2.html')
