@@ -1,27 +1,32 @@
 import os
 import re
+import random
+import base64
 import cv2
 from datetime import datetime as dt, timedelta
-from flask import flash, render_template, request, redirect, url_for, session, jsonify
+
+from flask import (
+    flash, render_template, request, redirect, url_for, session, jsonify
+)
 from werkzeug.utils import secure_filename
-from calorie_tracker import app, allowed_file, cleanup_uploads
-import openai
-import base64
-from calorie_tracker import config
+
+from calorie_tracker import (
+    app, allowed_file, cleanup_uploads, config, db, bcrypt, login_manager, mail
+)
 from flask_sqlalchemy import SQLAlchemy
-from calorie_tracker import db
-from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
-from calorie_tracker import bcrypt
-from calorie_tracker import login_manager
+from flask_login import (
+    UserMixin, login_user, logout_user, login_required, current_user
+)
 from flask_mail import Message
+
 from flask_admin.contrib.sqla import ModelView
 from flask_admin.contrib.fileadmin import FileAdmin
 from flask_admin import AdminIndexView
 from wtforms import PasswordField
-from calorie_tracker import mail
-import random
+
 from itsdangerous import URLSafeTimedSerializer
 from email_validator import validate_email, EmailNotValidError
+import openai
 
 
 # Initialize SQLAlchemy

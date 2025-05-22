@@ -9,6 +9,7 @@ from calorie_tracker import config
 from flask_admin import Admin
 from flask_admin.contrib.sqla import ModelView
 from flask_migrate import Migrate
+
 app = Flask(__name__)
 # Configure the database
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///calorie_tracker.db'
