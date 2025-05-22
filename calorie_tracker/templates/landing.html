@@ -13,43 +13,60 @@
             position: relative;
             overflow: hidden;
         }
-        /* Glass effect and smoother, more subtle shine animation */
+        /* New Glass shine effect */
         .glass-shine::before {
             content: '';
             position: absolute;
-            top: -60%;
-            left: -60%;
-            width: 120%;
-            height: 120%;
+            left: 0;
+            top: 0;
+            width: 100%; /* Cover the parent */
+            height: 100%;
+            /* A focused shine gradient that sweeps across */
             background: linear-gradient(
-                120deg,
-                rgba(255,255,255,0.07) 0%,
-                rgba(255,255,255,0.16) 40%,
-                rgba(255,255,255,0.07) 100%
+                100deg,
+                transparent 30%,
+                rgba(255, 255, 255, 0.35) 48%, /* Core of the shine */
+                rgba(255, 255, 255, 0.35) 52%,
+                transparent 70%
             );
-            transform: skewX(-20deg);
-            animation: shine-move 4.5s cubic-bezier(0.4,0,0.2,1) infinite;
+            filter: blur(4px); /* Softer edges for the shine */
+            transform: skewX(-20deg) translateX(-125%); /* Start off-screen */
+            animation: new-shine-sweep 5s ease-in-out infinite;
             pointer-events: none;
             z-index: 2;
+            will-change: transform, opacity;
         }
-        @keyframes shine-move {
+
+        @keyframes new-shine-sweep {
             0% {
+                transform: skewX(-20deg) translateX(-125%); /* Start fully to the left */
                 opacity: 0;
-                transform: skewX(-20deg) translateX(-100%);
             }
-            10% {
-                opacity: 0.5;
+            20% {
+                opacity: 0.6; /* Fade in as it enters view */
             }
-            50% {
-                opacity: 0.7;
-                transform: skewX(-20deg) translateX(100%);
-            }
-            90% {
-                opacity: 0.5;
+            80% {
+                opacity: 0.6; /* Hold opacity as it crosses */
             }
             100% {
-                opacity: 0;
-                transform: skewX(-20deg) translateX(120%);
+                transform: skewX(-20deg) translateX(125%); /* End fully to the right */
+                opacity: 0; /* Fade out as it exits view */
+            }
+        }
+
+        /* On small screens, adjust for a slightly faster, snappier feel */
+        @media (max-width: 640px) {
+            .glass-shine::before {
+                height: 430px; /* Keep existing height rule for mobile */
+                animation-duration: 3.5s; /* Faster sweep on mobile */
+                filter: blur(4.5px); /* Slightly more pronounced blur on mobile */
+                background: linear-gradient(
+                    100deg,
+                    transparent 25%,
+                    rgba(255, 255, 255, 0.4) 48%, /* Slightly brighter shine on mobile */
+                    rgba(255, 255, 255, 0.4) 52%,
+                    transparent 75%
+                );
             }
         }
     </style>
@@ -65,22 +82,22 @@
             </p>
             <div class="flex flex-col sm:flex-row gap-4 mb-12 w-full justify-center">
                 <a href="{{ url_for('login') }}"
-                   class="flex-1 px-8 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-lg shadow-lg transition text-center">
+                   class="flex-1 px-8 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-lg shadow-lg hover:shadow-xl hover:-translate-y-1 transition text-center">
                     Log In
                 </a>
                 <a href="{{ url_for('signup') }}"
-                   class="flex-1 px-8 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold text-lg shadow-lg transition text-center">
+                   class="flex-1 px-8 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold text-lg shadow-lg hover:shadow-xl hover:-translate-y-1 transition text-center">
                     Sign Up
                 </a>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-8 mt-2 w-full">
-                <div class="bg-zinc-900/90 rounded-2xl p-7 border border-zinc-700 flex flex-col items-center shadow-lg hover:scale-105 transition">
-                    <span class="inline-block mb-3 text-3xl">🤖</span>
+                <div class="group bg-zinc-900/90 rounded-2xl p-7 border border-zinc-700 flex flex-col items-center shadow-lg hover:scale-105 transition">
+                    <span class="inline-block mb-3 text-3xl group-hover:scale-110 group-hover:rotate-[-3deg] transition-transform duration-200 ease-out">🤖</span>
                     <span class="font-semibold text-zinc-100 mb-1 text-lg">AI Meal Analysis</span>
                     <span class="text-zinc-400 text-base text-center">Get instant feedback and nutrition tips powered by AI.</span>
                 </div>
-                <div class="bg-zinc-900/90 rounded-2xl p-7 border border-zinc-700 flex flex-col items-center shadow-lg hover:scale-105 transition">
-                    <span class="inline-block mb-3 text-3xl">📊</span>
+                <div class="group bg-zinc-900/90 rounded-2xl p-7 border border-zinc-700 flex flex-col items-center shadow-lg hover:scale-105 transition">
+                    <span class="inline-block mb-3 text-3xl group-hover:scale-110 group-hover:rotate-[3deg] transition-transform duration-200 ease-out">📊</span>
                     <span class="font-semibold text-zinc-100 mb-1 text-lg">Track & Visualize</span>
                     <span class="text-zinc-400 text-base text-center">Log your meals, set goals, and visualize your progress.</span>
                 </div>
