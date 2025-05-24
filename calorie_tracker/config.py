@@ -16,3 +16,5 @@ SECURITY_PASSWORD_SALT = os.environ.get('SECURITY_PASSWORD_SALT', 'secret-reset-
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', SECRET_KEY)
 ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'adminlogin&')
 ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', MAIL_USERNAME)
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
+GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
