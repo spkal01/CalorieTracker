@@ -1,0 +1,49 @@
+{
+  "name": "Calorie Tracker",
+  "short_name": "CalorieTracker",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#18181b",
+  "theme_color": "#2563eb",
+  "description": "Track your calories, get AI-powered meal insights, and achieve your nutrition goals.",
+  "icons": [
+    {
+      "src": "/static/images/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/images/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Add Food",
+      "short_name": "Add Food",
+      "description": "Quickly add food items to your calorie log.",
+      "url": "/saved",
+      "icons": [
+        {
+          "src": "/static/images/meal.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Analyze Meal",
+      "short_name": "Ai meal",
+      "description": "Calculate the calories in your meal using AI.",
+      "url": "/custom_calories",
+      "icons": [
+        {
+          "src": "/static/images/calories-calculator.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
+}

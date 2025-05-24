@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
     <link rel="icon" href="{{ url_for('static', filename='images/favicon.png') }}" type="image/png">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#2563eb">
     <style>
         .landing-main-box {
             margin-top: 3rem;
@@ -107,5 +109,53 @@
     <footer class="text-center py-6 text-zinc-500 text-sm">
         &copy; {{ year|default(2025) }} Calorie Tracker &mdash; Eat smart, live better.
     </footer>
+    <script>
+let deferredPrompt;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // Show a notification/toast instead of a button
+  showInstallNotification();
+});
+
+function showInstallNotification() {
+  // Remove any existing notification
+  document.getElementById('pwa-install-notification')?.remove();
+
+  // Create notification element
+  const notification = document.createElement('div');
+  notification.id = 'pwa-install-notification';
+  notification.className = 'fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-blue-700 text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-4 z-50';
+  notification.innerHTML = `
+    <span>Install Calorie Tracker for a better experience!</span>
+    <button id="pwa-install-action" class="ml-4 px-3 py-1 rounded bg-blue-400 hover:bg-blue-500 text-white font-semibold transition">Install</button>
+    <button id="pwa-install-dismiss" class="ml-2 px-2 py-1 rounded bg-zinc-700 hover:bg-zinc-800 text-zinc-200 transition">&times;</button>
+  `;
+  document.body.appendChild(notification);
+
+  // Install action
+  document.getElementById('pwa-install-action').onclick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        notification.remove();
+      }
+      deferredPrompt = null;
+    }
+  };
+
+  // Dismiss action
+  document.getElementById('pwa-install-dismiss').onclick = () => {
+    notification.remove();
+  };
+}
+
+// Register service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('{{ url_for("static", filename="js/service-worker.js") }}');
+}
+</script>
 </body>
 </html>

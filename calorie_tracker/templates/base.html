@@ -109,6 +109,15 @@
           }
         });
       });
+
+      // Ask for notification permission on load
+      if ('Notification' in window && navigator.serviceWorker) {
+        window.addEventListener('load', () => {
+          if (Notification.permission === 'default') {
+            Notification.requestPermission();
+          }
+        });
+      }
     </script>
     <!-- Responsive Animated Navbar End -->
     {% endif %}
