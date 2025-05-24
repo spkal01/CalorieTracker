@@ -4,6 +4,7 @@ import random
 import base64
 import cv2
 import secrets
+import json
 from datetime import datetime as dt
 
 from flask import (
@@ -637,3 +638,61 @@ def login_google():
     login_user(user)
     flash("Logged in with Google!", "success")
     return redirect(url_for("index"))
+
+@app.route('/describe_meal', methods=['POST'])
+@login_required
+def describe_meal():
+    description = request.form.get('meal_description')
+    if not description:
+        flash('Please describe your meal.', 'error')
+        return redirect(url_for('saved'))
+
+    prompt = (
+        "Extract all food items and estimate calories for each from this meal description. "
+        "Respond ONLY with a JSON array of objects with 'name' and 'calories' fields. "
+        "No explanation, no extra text. Example: "
+        '[{"name": "chicken breast", "calories": 200}, {"name": "rice", "calories": 180}]\n\n'
+        f"Meal description: {description}"
+    )
+    try:
+        response = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a helpful nutrition assistant."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=300,
+            temperature=0.7
+        )
+        ai_content = response.choices[0].message.content.strip()
+        # Optionally log/print for debugging
+        if app.debug:
+            print("AI response:", ai_content)
+        match = re.search(r'(\[.*\])', ai_content, re.DOTALL)
+        if match:
+            foods = json.loads(match.group(1))
+        else:
+            foods = []
+            flash('Could not extract foods from AI response.', 'error')
+    except Exception as e:
+        if app.debug:
+            print("OpenAI/JSON error:", e)
+            foods = []
+        flash('Could not analyze meal. Please try again.', 'error')
+
+    # Save each food item to the user's current day
+    today = dt.now().strftime("%Y-%m-%d")
+    entry = SavedCalories.query.filter_by(date=today, user_id=current_user.id).first()
+    if not entry:
+        entry = SavedCalories(date=today, user_id=current_user.id)
+        db.session.add(entry)
+        db.session.commit()
+    for food in foods:
+        name = food.get('name')
+        calories = food.get('calories')
+        if name and calories:
+            db.session.add(FoodItem(saved_calories_id=entry.id, name=name, calories=int(calories)))
+    db.session.commit()
+    if foods:
+        flash('Meal analyzed and foods added!', 'success')
+    return redirect(url_for('saved'))
