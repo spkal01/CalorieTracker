@@ -24,6 +24,18 @@
       </div>
       <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded transition">Next</button>
     </form>
+    <div class="flex flex-col gap-3 mt-3">
+      <div class="flex items-center w-full my-2">
+        <hr class="flex-grow border-zinc-700">
+        <span class="mx-4 text-zinc-400 text-sm whitespace-nowrap">Or</span>
+        <hr class="flex-grow border-zinc-700">
+      </div>
+      <a href="{{ url_for('login_google') }}"
+         class="w-full flex items-center justify-center gap-2 bg-white text-zinc-800 font-semibold py-2 px-4 rounded shadow hover:bg-zinc-100 transition">
+        <img src="{{ url_for('static', filename='images/google-symbol.png') }}" class="w-5 h-5" alt="Google">
+        Sign up with Google
+      </a>
+    </div>
   </div>
 </div>
 <script>

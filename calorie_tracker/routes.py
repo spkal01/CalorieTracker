@@ -3,6 +3,7 @@ import re
 import random
 import base64
 import cv2
+import secrets
 from datetime import datetime as dt
 
 from flask import (
@@ -27,6 +28,7 @@ from flask_mail import Message
 from itsdangerous import URLSafeTimedSerializer
 from email_validator import validate_email, EmailNotValidError
 import openai
+from flask_dance.contrib.google import google
 
 
 # Initialize SQLAlchemy
@@ -39,7 +41,11 @@ def read_image_base64(image_path):
 
 @app.before_request
 def require_login():
-    public_routes = ['login', 'signup', 'static', 'signup_verify', 'signup_email', 'forgot_password', 'reset_password', 'landing']  # Add other public endpoints if needed
+    public_routes = [
+        'login', 'signup', 'static', 'signup_verify', 'signup_email',
+        'forgot_password', 'reset_password', 'landing',
+        'login_google', 'google.login', 'google.authorized'
+    ]  # Add other public endpoints if needed
     if not current_user.is_authenticated and request.endpoint not in public_routes:
         return redirect(url_for('landing'))
 
@@ -612,3 +618,22 @@ def create_admin_user():
 @app.route('/landing')
 def landing():
     return render_template('landing.html')
+
+@app.route("/login/google")
+def login_google():
+    if not google.authorized:
+        return redirect(url_for("google.login"))
+    resp = google.get("/oauth2/v2/userinfo")
+    assert resp.ok, resp.text
+    info = resp.json()
+    # info contains 'email', 'name', etc.
+    user = User.query.filter_by(email=info["email"]).first()
+    if not user:
+        password = bcrypt.generate_password_hash(secrets.token_urlsafe(32)).decode('utf-8')
+        # Create a new user if not exists
+        user = User(username=info["email"], email=info["email"], password=password)  # You may want to handle password differently
+        db.session.add(user)
+        db.session.commit()
+    login_user(user)
+    flash("Logged in with Google!", "success")
+    return redirect(url_for("index"))

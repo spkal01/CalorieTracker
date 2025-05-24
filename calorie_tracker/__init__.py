@@ -8,6 +8,7 @@ from flask_mail import Mail
 from calorie_tracker import config
 from flask_admin import Admin
 from flask_migrate import Migrate
+from flask_dance.contrib.google import make_google_blueprint
 
 app = Flask(__name__)
 # Configure the database
@@ -34,6 +35,13 @@ app.config['MAIL_DEFAULT_SENDER'] = config.MAIL_DEFAULT_SENDER
 
 mail = Mail(app)
 migrate = Migrate(app, db)
+google_bp = make_google_blueprint(
+    client_id=config.GOOGLE_CLIENT_ID,
+    client_secret=config.GOOGLE_CLIENT_SECRET,
+    redirect_to='google.authorized'
+)
+app.register_blueprint(google_bp, url_prefix='/login')
+
 # Utility function to check allowed file types
 def allowed_file(filename):
     return '.' in filename and \
