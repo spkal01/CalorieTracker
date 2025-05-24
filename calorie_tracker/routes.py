@@ -30,6 +30,8 @@ from itsdangerous import URLSafeTimedSerializer
 from email_validator import validate_email, EmailNotValidError
 import openai
 from flask_dance.contrib.google import google
+from flask_dance.consumer import oauth_authorized
+from calorie_tracker import google_bp
 
 
 # Initialize SQLAlchemy
@@ -620,24 +622,29 @@ def create_admin_user():
 def landing():
     return render_template('landing.html')
 
-@app.route("/login/google")
-def login_google():
-    if not google.authorized:
-        return redirect(url_for("google.login"))
-    resp = google.get("/oauth2/v2/userinfo")
-    assert resp.ok, resp.text
+@oauth_authorized.connect_via(google_bp)
+def google_logged_in(blueprint, token):
+    """
+    Handle Google OAuth login: fetch user info, create or login the user, then redirect.
+    """
+    if not token:
+        flash("Failed to log in with Google.", "error")
+        return False
+    resp = blueprint.session.get("/oauth2/v2/userinfo")
+    if not resp.ok:
+        flash("Failed to fetch user info from Google.", "error")
+        return False
     info = resp.json()
-    # info contains 'email', 'name', etc.
-    user = User.query.filter_by(email=info["email"]).first()
+    email = info.get("email")
+    user = User.query.filter_by(email=email).first()
     if not user:
         password = bcrypt.generate_password_hash(secrets.token_urlsafe(32)).decode('utf-8')
-        # Create a new user if not exists
-        user = User(username=info["email"], email=info["email"], password=password)  # You may want to handle password differently
+        user = User(username=email, email=email, password=password)
         db.session.add(user)
         db.session.commit()
     login_user(user)
     flash("Logged in with Google!", "success")
-    return redirect(url_for("index"))
+    return False  # prevent Flask-Dance from storing OAuth token in session
 
 @app.route('/describe_meal', methods=['POST'])
 @login_required

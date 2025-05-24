@@ -9,8 +9,13 @@ from calorie_tracker import config
 from flask_admin import Admin
 from flask_migrate import Migrate
 from flask_dance.contrib.google import make_google_blueprint
+from werkzeug.middleware.proxy_fix import ProxyFix
 
+# Create Flask app and trust proxy headers (Render)
 app = Flask(__name__)
+# Trust proxy headers for correct host and scheme behind Render load balancer
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
+
 # Configure the database
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///calorie_tracker.db'
 
@@ -33,13 +38,27 @@ app.config['MAIL_USE_TLS'] = config.MAIL_USE_TLS
 app.config['MAIL_USE_SSL'] = config.MAIL_USE_SSL
 app.config['MAIL_DEFAULT_SENDER'] = config.MAIL_DEFAULT_SENDER
 
+# Ensure secure cookies and proxy support for OAuth on production
+
+app.config['SESSION_COOKIE_SECURE'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = "Lax"
+app.config['PREFERRED_URL_SCHEME'] = "https"
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['REMEMBER_COOKIE_SECURE'] = True
+app.config['REMEMBER_COOKIE_SAMESITE'] = "Lax"
+
 mail = Mail(app)
 migrate = Migrate(app, db)
+# Configure Google OAuth blueprint (uses /login/google and /login/google/authorized)
 google_bp = make_google_blueprint(
     client_id=config.GOOGLE_CLIENT_ID,
     client_secret=config.GOOGLE_CLIENT_SECRET,
-    redirect_to='google.authorized'
-)
+    scope=[
+        "openid",
+        "https://www.googleapis.com/auth/userinfo.profile",
+        "https://www.googleapis.com/auth/userinfo.email",
+    ],
+)  # use OIDC scopes to match Google’s current API
 app.register_blueprint(google_bp, url_prefix='/login')
 
 # Utility function to check allowed file types
