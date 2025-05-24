@@ -8,6 +8,23 @@
     <link rel="icon" href="{{ url_for('static', filename='images/favicon.png') }}" type="image/png">
     <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
     <meta name="theme-color" content="#2563eb">
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Track your calories, get AI-powered meal insights, and achieve your nutrition goals with Calorie Tracker. Modern, easy-to-use, and privacy-friendly.">
+    <meta name="keywords" content="calorie tracker, nutrition, meal analysis, AI, diet, health, food log, fitness, progress, web app, PWA">
+    <meta name="author" content="Spkal01">
+    <!-- Open Graph / Facebook -->
+    <meta property="og:title" content="Calorie Tracker - AI Powered Nutrition & Meal Log">
+    <meta property="og:description" content="Track your calories, get AI-powered meal insights, and achieve your nutrition goals with a beautiful, modern interface.">
+    <meta property="og:image" content="{{ url_for('static', filename='images/favicon.png', _external=True) }}">
+    <meta property="og:url" content="{{ request.url_root }}">
+    <meta property="og:type" content="website">
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Calorie Tracker - AI Powered Nutrition & Meal Log">
+    <meta name="twitter:description" content="Track your calories, get AI-powered meal insights, and achieve your nutrition goals with a beautiful, modern interface.">
+    <meta name="twitter:image" content="{{ url_for('static', filename='images/favicon.png', _external=True) }}">
+    <!-- Canonical URL -->
+    <link rel="canonical" href="{{ request.url_root }}landing">
     <style>
         .landing-main-box {
             margin-top: 3rem;
