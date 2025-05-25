@@ -539,13 +539,20 @@ def get_ai_analysis():
 
     today = dt.now().strftime("%Y-%m-%d")
     now_time = dt.now().strftime("%H:%M")
+    total_calories = get_saved_data()[0]['total_calories'] if get_saved_data() else 0
     entry = SavedCalories.query.filter_by(date=today, user_id=current_user.id).first()
-    if not entry or not entry.food_items:
-        food_entries = {}
-    else:
-        food_entries = {food.name: food.calories for food in entry.food_items}
+    # --- Caching logic using session ---
+    cache_key = f"ai_analysis_{today}_{current_user.id}"
+    cache_cal_key = f"ai_analysis_cal_{today}_{current_user.id}"
+    cached_analysis = session.get(cache_key)
+    cached_calories = session.get(cache_cal_key)
+
+    if cached_analysis and cached_calories == total_calories:
+        return cached_analysis
 
     # Compose the prompt for OpenAI
+    food_entries = {food.name: food.calories for food in entry.food_items} if entry and entry.food_items else {}
+
     prompt = (
         f"You are a helpful nutrition assistant. "
         f"Here is today's user data:\n"
@@ -577,10 +584,13 @@ def get_ai_analysis():
         temperature=0.7,
         max_tokens=400
     )
+    analysis = response.choices[0].message.content
 
-    return response.choices[0].message.content
+    # Cache the analysis and calories
+    session[cache_key] = analysis
+    session[cache_cal_key] = total_calories
 
-
+    return analysis
 def get_motivational_tip():
     quotes = [
         "Eat to fuel your body, not to feed your emotions.",
