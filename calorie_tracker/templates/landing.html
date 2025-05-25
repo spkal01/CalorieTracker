@@ -26,6 +26,32 @@
     <!-- Canonical URL -->
     <link rel="canonical" href="{{ request.url_root }}landing">
     <style>
+        /* START: Rules to combat extension overrides */
+        html.bg-zinc-900 {
+            background-color: #18181b !important; /* Tailwind's zinc-900 */
+        }
+        html.text-zinc-100 {
+            color: #f4f4f5 !important; /* Tailwind's zinc-100 */
+        }
+        body {
+            /* Ensure body background is transparent so HTML background shows through,
+               and it inherits the protected text color. */
+            background-color: transparent !important;
+            color: inherit !important;
+        }
+
+        /* Protect the gradient text of the main H1 */
+        /* This targets the H1 with the specific classes for gradient text. */
+        .landing-main-box > h1.text-transparent.bg-clip-text {
+            color: transparent !important;
+            -webkit-background-clip: text !important;
+            background-clip: text !important;
+            /* Note: This primarily protects the transparency and clipping.
+               If an extension overrides the 'background-image' (the gradient itself),
+               that would be a separate, more complex issue to override back. */
+        }
+        /* END: Rules to combat extension overrides */
+
         .landing-main-box {
             margin-top: 3rem;
             margin-bottom: 3rem;
