@@ -9,6 +9,17 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="{{ url_for('static', filename='js/reset.js') }}"></script>
 </head>
+<style>
+.fade-in {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s cubic-bezier(0.4,0,0.2,1), transform 0.7s cubic-bezier(0.4,0,0.2,1);
+}
+.fade-in.visible {
+  opacity: 1;
+  transform: none;
+}
+</style>
 <body class="min-h-screen flex flex-col font-sans antialiased">
     {% if current_user.is_authenticated %}
     <!-- Responsive Animated Navbar Start -->
@@ -67,7 +78,6 @@
       document.addEventListener('DOMContentLoaded', function () {
         const toggle = document.getElementById('nav-toggle');
         const menu = document.getElementById('nav-menu');
-
         toggle.addEventListener('click', () => {
           toggle.classList.toggle('open');
           if (menu.style.maxHeight && menu.style.maxHeight !== '0px') {
@@ -108,6 +118,12 @@
             setTimeout(() => dropdownMenu.classList.add('hidden'), 300);
           }
         });
+
+        // Ensure fade-in animation always triggers
+        const content = document.getElementById('content-container');
+        if (content) {
+          setTimeout(() => content.classList.add('visible'), 20);
+        }
       });
 
       // Ask for notification permission on load
@@ -122,7 +138,7 @@
     <!-- Responsive Animated Navbar End -->
     {% endif %}
     <main class="flex-grow px-6 py-10">
-        <div id="content-container" class="max-w-3xl mx-auto">
+        <div id="content-container" class="max-w-3xl mx-auto fade-in">
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     <div class="mb-4 space-y-2">
