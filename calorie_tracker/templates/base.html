@@ -74,50 +74,55 @@
             </div>
         </div>
     </nav>
+    {% endif %}
     <script>
       document.addEventListener('DOMContentLoaded', function () {
         const toggle = document.getElementById('nav-toggle');
         const menu = document.getElementById('nav-menu');
-        toggle.addEventListener('click', () => {
-          toggle.classList.toggle('open');
-          if (menu.style.maxHeight && menu.style.maxHeight !== '0px') {
-            menu.style.maxHeight = '0px';
-          } else {
-            menu.style.maxHeight = menu.scrollHeight + 'px';
-          }
-        });
+        if (toggle && menu) {
+          toggle.addEventListener('click', () => {
+            toggle.classList.toggle('open');
+            if (menu.style.maxHeight && menu.style.maxHeight !== '0px') {
+              menu.style.maxHeight = '0px';
+            } else {
+              menu.style.maxHeight = menu.scrollHeight + 'px';
+            }
+          });
+        }
 
         // Dropdown click toggle with animation
         const dropdownToggle = document.getElementById('dropdown-toggle');
         const dropdownMenu = document.getElementById('dropdown-menu');
         const dropdownArrow = document.getElementById('dropdown-arrow');
 
-        dropdownToggle.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const isOpen = !dropdownMenu.classList.contains('hidden');
-          if (isOpen) {
-            dropdownMenu.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
-            dropdownMenu.classList.remove('opacity-100', 'scale-100');
-            dropdownArrow.classList.remove('rotate-180');
-            setTimeout(() => dropdownMenu.classList.add('hidden'), 300);
-          } else {
-            dropdownMenu.classList.remove('hidden');
-            setTimeout(() => {
-              dropdownMenu.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
-              dropdownMenu.classList.add('opacity-100', 'scale-100');
-              dropdownArrow.classList.add('rotate-180');
-            }, 10);
-          }
-        });
+        if (dropdownToggle && dropdownMenu && dropdownArrow) {
+          dropdownToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = !dropdownMenu.classList.contains('hidden');
+            if (isOpen) {
+              dropdownMenu.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
+              dropdownMenu.classList.remove('opacity-100', 'scale-100');
+              dropdownArrow.classList.remove('rotate-180');
+              setTimeout(() => dropdownMenu.classList.add('hidden'), 300);
+            } else {
+              dropdownMenu.classList.remove('hidden');
+              setTimeout(() => {
+                dropdownMenu.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
+                dropdownMenu.classList.add('opacity-100', 'scale-100');
+                dropdownArrow.classList.add('rotate-180');
+              }, 10);
+            }
+          });
 
-        document.addEventListener('click', (e) => {
-          if (!dropdownMenu.classList.contains('hidden') && !dropdownMenu.contains(e.target) && e.target !== dropdownToggle) {
-            dropdownMenu.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
-            dropdownMenu.classList.remove('opacity-100', 'scale-100');
-            dropdownArrow.classList.remove('rotate-180');
-            setTimeout(() => dropdownMenu.classList.add('hidden'), 300);
-          }
-        });
+          document.addEventListener('click', (e) => {
+            if (!dropdownMenu.classList.contains('hidden') && !dropdownMenu.contains(e.target) && e.target !== dropdownToggle) {
+              dropdownMenu.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
+              dropdownMenu.classList.remove('opacity-100', 'scale-100');
+              dropdownArrow.classList.remove('rotate-180');
+              setTimeout(() => dropdownMenu.classList.add('hidden'), 300);
+            }
+          });
+        }
 
         // Ensure fade-in animation always triggers
         const content = document.getElementById('content-container');
@@ -136,7 +141,6 @@
       }
     </script>
     <!-- Responsive Animated Navbar End -->
-    {% endif %}
     <main class="flex-grow px-6 py-10">
         <div id="content-container" class="max-w-3xl mx-auto fade-in">
             {% with messages = get_flashed_messages(with_categories=true) %}
@@ -164,7 +168,6 @@
             {% block content %}{% endblock %}
         </div>
     </main>
-
     <footer class="text-center text-xs text-zinc-500 py-6 border-t border-zinc-800">
         &copy; {{ year }} Calorie Tracker
     </footer>
