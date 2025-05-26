@@ -83,7 +83,7 @@ from calorie_tracker.admin_views import AdminUser, FileAdminView, AdminView
 admin = Admin(app, name='Calorie Tracker Admin', template_mode='bootstrap3', index_view=AdminView())
 admin.add_view(AdminUser(User, db.session, name='Users'))
 admin.add_view(FileAdminView(UPLOAD_FOLDER, name='Uploads'))
-with app.app_context():
-    create_admin_user()
+#with app.app_context():
+#    create_admin_user()
 # Cleanup old files every 24 hours
 cleanup_uploads(UPLOAD_FOLDER, max_age_seconds=24*60*60)
