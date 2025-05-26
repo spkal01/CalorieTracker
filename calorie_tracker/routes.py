@@ -848,59 +848,27 @@ def api_remove_diet_food():
         # Food item not found in today's log.
         return jsonify({'status': 'success', 'message': 'Food item not found in today\'s log.'}), 200
     
-
-def get_diet_plan(describe_diet=''):
-    """
-    Fetches the user's diet plan. If none exists, generates a sample one.
-    Returns the plan structured as a dictionary:
-    { day_name: { meal_type_name: [meal_items] } }
-    """
-    user = current_user
-    plan_data = {}
-
-    # Check if any diet days exist for the user
-    user_has_plan = UserDietDay.query.filter_by(user_id=user.id).first()
-
-    if not user_has_plan or describe_diet != '':
-        generate_and_store_diet_plan(user.id, describe_diet)
-
-    diet_days_for_user = UserDietDay.query.filter_by(user_id=user.id).order_by(UserDietDay.day_of_week).all()
-
-    for diet_day in diet_days_for_user:
-        day_name = diet_day.day_of_week.value # e.g., "Monday"
-        plan_data[day_name] = {}
-        
-        meals_for_day = Meal.query.filter_by(user_diet_day_id=diet_day.id).order_by(Meal.meal_type).all()
-        for meal in meals_for_day:
-            meal_type_name = meal.meal_type.value # e.g., "Breakfast"
-            
-            items_for_meal = MealItem.query.filter_by(meal_id=meal.id).all()
-            plan_data[day_name][meal_type_name] = [
-                {
-                    "id": item.id, # Good to have for potential future interactions (edit/delete item)
-                    "food_name": item.food_name,
-                    "calories": item.calories,
-                    "quantity": item.quantity,
-                    "notes": item.notes
-                } for item in items_for_meal
-            ]
-    return plan_data
-
 @app.route('/create_diet_plan', methods=['GET', 'POST'])
 @login_required
 def create_diet_plan():
     current_weekday = dt.now().strftime("%A")
-    plan = get_diet_plan()  
+    
     if request.method == 'POST':
         describe_diet = request.form.get('describe_diet')
         if describe_diet:
-            plan = get_diet_plan(describe_diet)
-            return render_template('create_diet_plan.html', current_day_name=current_weekday, diet_plan=plan)
+            # Call generation function directly here
+            success = generate_and_store_diet_plan(current_user.id, describe_diet)
+            if not success:
+                flash('There was an issue generating your AI diet plan. Please try again or check your profile settings.', 'error')
+                # Fall through to render with potentially empty or old plan
         else:
             flash('Please describe your diet plan if you want to generate a new one.', 'error')
-            return redirect(url_for('create_diet_plan'))
+        # After POST (generation attempt or error), always fetch the current state of the plan
+        plan = get_existing_diet_plan() 
+        return redirect(url_for('create_diet_plan')) # Redirect to GET to show updated plan or message
 
-    # For GET request
+    # For GET request, just fetch the existing plan
+    plan = get_existing_diet_plan()
     return render_template('create_diet_plan.html', current_day_name=current_weekday, diet_plan=plan)
 
 
@@ -1079,3 +1047,29 @@ def generate_and_store_diet_plan(user_id, describe_diet=''):
         import traceback
         traceback.print_exc()
         return False
+
+def get_existing_diet_plan(): # Renamed for clarity
+    user = current_user
+    plan_data = {}
+    diet_days_for_user = UserDietDay.query.filter_by(user_id=user.id).order_by(UserDietDay.day_of_week).all()
+    
+    if not diet_days_for_user: # If no days, return empty plan
+        return {}
+
+    for diet_day in diet_days_for_user:
+        day_name = diet_day.day_of_week.value
+        plan_data[day_name] = {}
+        meals_for_day = Meal.query.filter_by(user_diet_day_id=diet_day.id).order_by(Meal.meal_type).all()
+        for meal in meals_for_day:
+            meal_type_name = meal.meal_type.value
+            items_for_meal = MealItem.query.filter_by(meal_id=meal.id).all()
+            plan_data[day_name][meal_type_name] = [
+                {
+                    "id": item.id,
+                    "food_name": item.food_name,
+                    "calories": item.calories,
+                    "quantity": item.quantity,
+                    "notes": item.notes
+                } for item in items_for_meal
+            ]
+    return plan_data

@@ -49,79 +49,19 @@
 {% set days_of_week_ordered = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] %}
 
 <div class="w-full py-10">
-    <h2 class="text-4xl font-extrabold text-zinc-100 mb-12 text-center">Your Weekly Diet Plan</h2>
+    {# Check if a diet plan exists and is not empty.
+       The diet_plan is a dictionary where keys are day names.
+       If it's empty, it means no plan exists. #}
+    {% if diet_plan and diet_plan|length > 0 %}
+        <h2 class="text-4xl font-extrabold text-zinc-100 mb-12 text-center">Your Weekly Diet Plan</h2>
 
-    {# Current Day - Displayed Wider and on Top #}
-    {% if current_day_name in diet_plan %}
-    <div class="mb-16">
-        <h3 class="text-2xl font-semibold text-blue-300 mb-6 text-center">{{ current_day_name }}'s Plan (Today)</h3>
-        <div id="current-day-card" data-day-name="{{ current_day_name }}" class="day-plan-card bg-gradient-to-br from-zinc-800 via-zinc-800/90 to-blue-900/60 border-2 border-blue-500/70 rounded-2xl shadow-2xl p-8 flex flex-col transition-all duration-300 ease-in-out hover:shadow-blue-500/40 backdrop-blur-sm">
-            <div class="space-y-6 flex-grow">
-                {% set day_plan = diet_plan[current_day_name] %}
-                {% for meal_type_name in MEAL_TYPE_DISPLAY_ORDER %}
-                    {% if meal_type_name in day_plan and day_plan[meal_type_name] %}
-                        <div>
-                            <h4 class="font-semibold text-zinc-100 mb-2.5 text-xl text-center">{{ meal_type_name }}</h4>
-                            <ul class="text-zinc-300 space-y-1 text-base text-center">
-                                {% for item in day_plan[meal_type_name] %}
-                                    <li data-item-id="{{ item.id }}">
-                                        <span class="food-name">{{ item.food_name }}</span>
-                                        <span class="food-quantity text-xs text-zinc-500 ml-1 {% if item.quantity %}inline-block{% else %}hidden{% endif %}">
-                                            {% if item.quantity %}({{ item.quantity }}){% endif %}
-                                        </span>
-                                        <span class="food-calories text-xs text-zinc-400 ml-2 {% if item.calories is not none %}inline-block{% else %}hidden{% endif %}">
-                                            {% if item.calories is not none %}({{ item.calories }} kcal){% endif %}
-                                        </span>
-                                        {% if item.notes %}<p class="text-xs text-zinc-500 italic mt-0.5">{{ item.notes }}</p>{% endif %}
-                                    </li>
-                                {% endfor %}
-                            </ul>
-                        </div>
-                        {# Add hr if this is not the last meal type WITH items for this day #}
-                        {% if not loop.last %}
-                            {% set add_hr = false %}
-                            {% for i in range(loop.index, MEAL_TYPE_DISPLAY_ORDER|length) %}
-                                {% if MEAL_TYPE_DISPLAY_ORDER[i] in day_plan and day_plan[MEAL_TYPE_DISPLAY_ORDER[i]] %}
-                                    {% set add_hr = true %}
-                                    {# No break in Jinja, so this inner loop will complete, but add_hr is set #}
-                                {% endif %}
-                            {% endfor %}
-                            {% if add_hr %}
-                                <hr class="border-zinc-700/70 my-4">
-                            {% endif %}
-                        {% endif %}
-                    {% endif %}
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-    {% else %}
-    <div class="mb-16 text-center text-zinc-400">
-        <p>No diet plan found for today ({{ current_day_name }}).</p>
-    </div>
-    {% endif %}
-
-    {# Title for Remaining Days #}
-    {% set upcoming_days_exist = false %}
-    {% for day_key in days_of_week_ordered %}
-        {% if day_key != current_day_name and day_key in diet_plan %}
-            {% set upcoming_days_exist = true %}
-            {# No break needed here, just setting a flag #}
-        {% endif %}
-    {% endfor %}
-
-    {% if upcoming_days_exist %}
-    <h2 class="text-3xl font-semibold text-zinc-200 mb-10 text-center pt-8 border-t border-zinc-700">Upcoming Days</h2>
-    {% endif %}
-
-    {# Grid for the Remaining Days #}
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
-        {% for day_name_iter in days_of_week_ordered %}
-            {% if day_name_iter != current_day_name and day_name_iter in diet_plan %}
-            {% set day_plan = diet_plan[day_name_iter] %}
-            <div class="day-plan-card upcoming-day-card bg-gradient-to-br from-zinc-800 to-zinc-800/80 border border-zinc-700 rounded-2xl shadow-xl p-8 flex flex-col transition-all duration-300 ease-in-out hover:shadow-blue-600/30 hover:border-blue-500/80 hover:scale-[1.02] hover:-translate-y-1.5 backdrop-blur-sm" data-day-name="{{ day_name_iter }}">
-                <h3 class="text-3xl font-bold text-blue-400 mb-6 border-b-2 border-zinc-700 pb-4 text-center">{{ day_name_iter }}</h3>
+        {# Current Day - Displayed Wider and on Top #}
+        {% if current_day_name in diet_plan %}
+        <div class="mb-16">
+            <h3 class="text-2xl font-semibold text-blue-300 mb-6 text-center">{{ current_day_name }}'s Plan (Today)</h3>
+            <div id="current-day-card" data-day-name="{{ current_day_name }}" class="day-plan-card bg-gradient-to-br from-zinc-800 via-zinc-800/90 to-blue-900/60 border-2 border-blue-500/70 rounded-2xl shadow-2xl p-8 flex flex-col transition-all duration-300 ease-in-out hover:shadow-blue-500/40 backdrop-blur-sm">
                 <div class="space-y-6 flex-grow">
+                    {% set day_plan = diet_plan[current_day_name] %}
                     {% for meal_type_name in MEAL_TYPE_DISPLAY_ORDER %}
                         {% if meal_type_name in day_plan and day_plan[meal_type_name] %}
                             <div>
@@ -143,13 +83,14 @@
                             </div>
                             {# Add hr if this is not the last meal type WITH items for this day #}
                             {% if not loop.last %}
-                                {% set add_hr_upcoming = false %}
+                                {% set add_hr = false %}
                                 {% for i in range(loop.index, MEAL_TYPE_DISPLAY_ORDER|length) %}
                                     {% if MEAL_TYPE_DISPLAY_ORDER[i] in day_plan and day_plan[MEAL_TYPE_DISPLAY_ORDER[i]] %}
-                                        {% set add_hr_upcoming = true %}
+                                        {% set add_hr = true %}
+                                        {# No break in Jinja, so this inner loop will complete, but add_hr is set #}
                                     {% endif %}
                                 {% endfor %}
-                                {% if add_hr_upcoming %}
+                                {% if add_hr %}
                                     <hr class="border-zinc-700/70 my-4">
                                 {% endif %}
                             {% endif %}
@@ -157,11 +98,88 @@
                     {% endfor %}
                 </div>
             </div>
+        </div>
+        {% else %}
+        {# This part might not be strictly necessary if the outer if diet_plan handles it,
+           but good for explicit "no plan for today" if a plan exists for other days.
+           However, if diet_plan is empty, this won't show due to the outer if. #}
+        <div class="mb-16 text-center text-zinc-400">
+            <p>No diet plan found for today ({{ current_day_name }}).</p>
+        </div>
+        {% endif %}
+
+        {# Title for Remaining Days #}
+        {% set upcoming_days_exist = false %}
+        {% for day_key in days_of_week_ordered %}
+            {% if day_key != current_day_name and day_key in diet_plan %}
+                {% set upcoming_days_exist = true %}
+                {# No break needed here, just setting a flag #}
             {% endif %}
         {% endfor %}
-    </div>
 
-    {# AI Diet Plan Generation Section #}
+        {% if upcoming_days_exist %}
+        <h2 class="text-3xl font-semibold text-zinc-200 mb-10 text-center pt-8 border-t border-zinc-700">Upcoming Days</h2>
+        {% endif %}
+
+        {# Grid for the Remaining Days #}
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
+            {% for day_name_iter in days_of_week_ordered %}
+                {% if day_name_iter != current_day_name and day_name_iter in diet_plan %}
+                {% set day_plan = diet_plan[day_name_iter] %}
+                <div class="day-plan-card upcoming-day-card bg-gradient-to-br from-zinc-800 to-zinc-800/80 border border-zinc-700 rounded-2xl shadow-xl p-8 flex flex-col transition-all duration-300 ease-in-out hover:shadow-blue-600/30 hover:border-blue-500/80 hover:scale-[1.02] hover:-translate-y-1.5 backdrop-blur-sm" data-day-name="{{ day_name_iter }}">
+                    <h3 class="text-3xl font-bold text-blue-400 mb-6 border-b-2 border-zinc-700 pb-4 text-center">{{ day_name_iter }}</h3>
+                    <div class="space-y-6 flex-grow">
+                        {% for meal_type_name in MEAL_TYPE_DISPLAY_ORDER %}
+                            {% if meal_type_name in day_plan and day_plan[meal_type_name] %}
+                                <div>
+                                    <h4 class="font-semibold text-zinc-100 mb-2.5 text-xl text-center">{{ meal_type_name }}</h4>
+                                    <ul class="text-zinc-300 space-y-1 text-base text-center">
+                                        {% for item in day_plan[meal_type_name] %}
+                                            <li data-item-id="{{ item.id }}">
+                                                <span class="food-name">{{ item.food_name }}</span>
+                                                <span class="food-quantity text-xs text-zinc-500 ml-1 {% if item.quantity %}inline-block{% else %}hidden{% endif %}">
+                                                    {% if item.quantity %}({{ item.quantity }}){% endif %}
+                                                </span>
+                                                <span class="food-calories text-xs text-zinc-400 ml-2 {% if item.calories is not none %}inline-block{% else %}hidden{% endif %}">
+                                                    {% if item.calories is not none %}({{ item.calories }} kcal){% endif %}
+                                                </span>
+                                                {% if item.notes %}<p class="text-xs text-zinc-500 italic mt-0.5">{{ item.notes }}</p>{% endif %}
+                                            </li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                {# Add hr if this is not the last meal type WITH items for this day #}
+                                {% if not loop.last %}
+                                    {% set add_hr_upcoming = false %}
+                                    {% for i in range(loop.index, MEAL_TYPE_DISPLAY_ORDER|length) %}
+                                        {% if MEAL_TYPE_DISPLAY_ORDER[i] in day_plan and day_plan[MEAL_TYPE_DISPLAY_ORDER[i]] %}
+                                            {% set add_hr_upcoming = true %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    {% if add_hr_upcoming %}
+                                        <hr class="border-zinc-700/70 my-4">
+                                    {% endif %}
+                                {% endif %}
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    {% else %}
+        {# This 'else' corresponds to the 'if diet_plan and diet_plan|length > 0'
+           It means no plan exists at all. We can show a message or just proceed to the AI form.
+           For your request, we'll just let it fall through to the AI form.
+           You could add a message here if desired:
+           <div class="text-center text-zinc-300 py-10">
+               <p class="text-2xl">You don't have a diet plan yet.</p>
+               <p class="text-lg mt-2">Let's create one with AI!</p>
+           </div>
+        #}
+    {% endif %}
+
+    {# AI Diet Plan Generation Section - This will always be visible #}
     <div class="mt-20 mb-10 p-6 sm:p-8 bg-zinc-800/70 border border-zinc-700 rounded-xl shadow-xl max-w-2xl mx-auto backdrop-blur-sm">
         <h3 class="text-2xl font-semibold text-blue-300 mb-6 text-center">✨ Create Your AI-Powered Diet Plan ✨</h3>
         <form id="ai-diet-form" action="{{ url_for('create_diet_plan') }}" method="POST">
