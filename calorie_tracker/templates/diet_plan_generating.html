@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% set page_max_width = "max-w-3xl" %} {# Slightly wider for a bit more space #}
+
+{% block content %}
+<div class="w-full py-16 sm:py-24 text-center">
+    <div class="bg-zinc-800/50 backdrop-blur-md shadow-2xl rounded-xl p-8 sm:p-12 max-w-xl mx-auto border border-zinc-700">
+        <h2 class="text-3xl sm:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-cyan-400 to-emerald-400 mb-8">
+            ✨ Your AI Chef is at Work! ✨
+        </h2>
+        
+        <div id="loading-indicator" class="flex justify-center items-center mb-8">
+            <svg class="animate-spin h-16 w-16 text-cyan-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+        </div>
+        
+        <p id="status-message" class="text-zinc-300 text-lg sm:text-xl mb-4">
+            Cooking up your personalized diet plan... Just a moment!
+        </p>
+        <p class="text-xs text-zinc-500 italic">We'll whisk you away automatically when it's ready.</p>
+        
+        <div id="error-message-container" class="mt-10 hidden bg-red-900/30 border border-red-700 p-6 rounded-lg">
+            <h3 id="error-title" class="text-xl font-semibold text-red-300 mb-3">Oops! A Kitchen Mishap...</h3>
+            <p id="error-message-text" class="text-red-400 text-md mb-6"></p>
+            <a href="{{ url_for('create_diet_plan') }}" 
+               class="inline-block bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white font-semibold py-2.5 px-6 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105">
+                Try Conjuring Again
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const generationToken = "{{ generation_token }}";
+        const statusMessageEl = document.getElementById('status-message');
+        const errorMessageContainerEl = document.getElementById('error-message-container');
+        const errorMessageTextEl = document.getElementById('error-message-text');
+        const errorTitleEl = document.getElementById('error-title');
+        const loadingIndicatorEl = document.getElementById('loading-indicator');
+        
+        let pollInterval;
+        let attempts = 0; 
+        const maxAttempts = 60; 
+        const pollFrequency = 2000; // 2 seconds
+
+        // New: Control message change frequency
+        let messageChangeCounter = 0;
+        const messageChangeFrequency = 3; // Change message every 3 poll attempts
+
+        const pendingMessages = [
+            "Stirring in the final ingredients...",
+            "Perfecting your personalized plan...",
+            "AI magic is happening...",
+            "Just a few more culinary calculations...",
+            "Your delicious diet is almost served!",
+            "Simmering your selections...",
+            "Crafting the perfect combination...",
+            "Consulting with the digital gourmets..."
+        ];
+
+        function updateDisplay(isLoading, message, isError, errorTitle, errorMessage) {
+            if (isLoading) {
+                loadingIndicatorEl.classList.remove('hidden');
+            } else {
+                loadingIndicatorEl.classList.add('hidden');
+            }
+            statusMessageEl.textContent = message;
+
+            if (isError) {
+                errorTitleEl.textContent = errorTitle || "Oops! A Kitchen Mishap...";
+                errorMessageTextEl.textContent = errorMessage || 'Something went wrong.';
+                errorMessageContainerEl.classList.remove('hidden');
+            } else {
+                errorMessageContainerEl.classList.add('hidden');
+            }
+        }
+
+
+        function checkStatus() {
+            attempts++;
+            if (attempts > maxAttempts) {
+                clearInterval(pollInterval);
+                updateDisplay(false, 
+                    'The kitchen seems a bit busy right now...', 
+                    true, 
+                    'Still Simmering...', 
+                    'This is taking longer than expected. Please check the Diet Page later or try generating again.');
+                return;
+            }
+
+            fetch(`/api/get_diet_generation_status/${generationToken}`)
+                .then(response => {
+                    if (!response.ok) {
+                        console.warn(`Network response was not ok: ${response.statusText} (Attempt: ${attempts})`);
+                        if (attempts >= maxAttempts / 2) { 
+                             updateDisplay(true, 
+                                'Having a little trouble connecting to the kitchen...', 
+                                false); 
+                        }
+                        throw new Error(`Network response was not ok: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.token_match === false) {
+                        clearInterval(pollInterval);
+                        updateDisplay(false, 
+                            'Hmm, looks like we lost the recipe...', 
+                            true, 
+                            'Request Tracking Issue', 
+                            data.message || 'There was an issue tracking your request. Please try generating your diet plan again.');
+                        return;
+                    }
+
+                    if (data.status === 'completed') {
+                        clearInterval(pollInterval);
+                        updateDisplay(false, 'Bon appétit! Your plan is ready. Whisking you away...', false);
+                        setTimeout(() => {
+                            window.location.href = "{{ url_for('create_diet_plan') }}";
+                        }, 1500);
+                    } else if (data.status === 'failed') {
+                        clearInterval(pollInterval);
+                        updateDisplay(false, 
+                            'The recipe didn\'t quite work out this time.', 
+                            true, 
+                            'Generation Failed', 
+                            'An error occurred while crafting your plan. Please try again.');
+                    } else if (data.status === 'pending') {
+                        // Only update the message if it's time, based on messageChangeFrequency
+                        if (attempts % messageChangeFrequency === 1 || attempts === 1) { // Update on 1st attempt, then every Nth attempt
+                            messageChangeCounter++; // Increment this counter to cycle through messages
+                            statusMessageEl.textContent = pendingMessages[messageChangeCounter % pendingMessages.length];
+                        }
+                        // If it's not time to change the message, statusMessageEl retains its current value
+                    } else { // Unknown status
+                        clearInterval(pollInterval);
+                        updateDisplay(false, 
+                            'An unexpected ingredient showed up!', 
+                            true, 
+                            'Unexpected Status', 
+                            'An unusual status was received. Please check the Diet Page or try again.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error polling status:', error);
+                });
+        }
+
+        // Start polling
+        const initialStatus = "{{ initial_status|default('pending', true) }}";
+        if (initialStatus === 'completed') {
+             updateDisplay(false, 'Plan already cooked! Redirecting...', false);
+             setTimeout(() => { window.location.href = "{{ url_for('create_diet_plan') }}"; }, 1000);
+        } else if (initialStatus === 'failed') {
+            updateDisplay(false, 
+                'Looks like this recipe had an issue earlier.', 
+                true, 
+                'Previous Attempt Failed', 
+                'The previous attempt to generate this plan failed. Please try again.');
+        } else {
+            // Set initial pending message
+            statusMessageEl.textContent = pendingMessages[0]; 
+            pollInterval = setInterval(checkStatus, pollFrequency);
+        }
+    });
+</script>
+{% endblock %}

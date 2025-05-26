@@ -1,6 +1,8 @@
 from flask_login import UserMixin
 from calorie_tracker import db
 import enum
+from sqlalchemy import Date
+from datetime import date 
 
 class FoodItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -34,6 +36,14 @@ class User(db.Model, UserMixin):
 
     # Add this relationship for the diet plan
     diet_days = db.relationship('UserDietDay', backref='user', lazy='dynamic', cascade="all, delete-orphan")
+
+    # New fields for rate limiting diet plan generation
+    last_plan_generation_date = db.Column(db.Date, nullable=True)
+    plan_generations_today = db.Column(db.Integer, default=0, nullable=False)
+
+    # New fields for tracking diet plan generation status
+    active_diet_generation_token = db.Column(db.String(32), nullable=True, index=True)
+    last_diet_generation_status = db.Column(db.String(20), nullable=True) # e.g., "pending", "completed", "failed"
 
 # Add these Enums
 class DayOfWeekEnum(enum.Enum):

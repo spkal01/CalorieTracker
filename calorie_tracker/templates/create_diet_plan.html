@@ -182,6 +182,16 @@
     {# AI Diet Plan Generation Section - This will always be visible #}
     <div class="mt-20 mb-10 p-6 sm:p-8 bg-zinc-800/70 border border-zinc-700 rounded-xl shadow-xl max-w-2xl mx-auto backdrop-blur-sm">
         <h3 class="text-2xl font-semibold text-blue-300 mb-6 text-center">✨ Create Your AI-Powered Diet Plan ✨</h3>
+        
+        {# Display generations left #}
+        <div class="text-center text-sm text-zinc-400 mb-4">
+            {% if generations_left_today > 0 %}
+                You have <strong class="text-green-400">{{ generations_left_today }}</strong> AI generation(s) left for today (out of {{ max_generations_per_day }}).
+            {% else %}
+                You have <strong class="text-red-400">0</strong> AI generations left for today. Please try again tomorrow.
+            {% endif %}
+        </div>
+
         <form id="ai-diet-form" action="{{ url_for('create_diet_plan') }}" method="POST">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="mb-6">
@@ -199,7 +209,9 @@
                 <button
                     type="submit"
                     id="generate-plan-button"
-                    class="group relative w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 text-lg font-semibold text-white bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg shadow-md hover:from-green-600 hover:to-emerald-700 focus:outline-none focus:ring-4 focus:ring-green-400 focus:ring-opacity-50 transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:from-green-500 disabled:hover:to-emerald-600">
+                    class="group relative w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 text-lg font-semibold text-white bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg shadow-md hover:from-green-600 hover:to-emerald-700 focus:outline-none focus:ring-4 focus:ring-green-400 focus:ring-opacity-50 transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:from-green-500 disabled:hover:to-emerald-600"
+                    {% if generations_left_today <= 0 %}disabled{% endif %}> 
+                    {# Disable button if no generations left #}
                     <svg id="button-icon" class="w-6 h-6 mr-2.5 transition-transform duration-300 group-hover:rotate-12" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L1.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.25 12L17 13.75M17 13.75L15.75 12M17 13.75L18.25 15M15.75 12L17 10.25" />
                     </svg>

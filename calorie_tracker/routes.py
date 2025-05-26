@@ -6,7 +6,7 @@ import cv2
 import secrets
 import json
 from datetime import datetime as dt
-
+import threading
 from flask import (
     flash, render_template, request, redirect, url_for, session, jsonify
 )
@@ -560,6 +560,20 @@ def api_update_diet_plan_item():
         app.logger.error(f"Error updating meal item {meal_item_id}: {e}")
         return jsonify({'status': 'error', 'message': f'An internal error occurred: {str(e)}'}), 500
 
+@app.route('/api/get_diet_generation_status/<generation_token>')
+@login_required
+def get_diet_generation_status_api(generation_token):
+    user = current_user
+    if user.active_diet_generation_token == generation_token:
+        status = user.last_diet_generation_status
+        return jsonify({'status': status, 'token_match': True})
+    else:
+        # If the active token is different, this token is outdated or invalid.
+        # We could also check if last_diet_generation_status is 'completed' for this specific token
+        # if we didn't clear active_diet_generation_token upon completion/failure.
+        # For now, a simple mismatch implies the task is no longer the primary one being tracked.
+        return jsonify({'status': 'unknown', 'token_match': False, 'message': 'Token mismatch or task superseded.'})
+
 def ai_reccomend_daily_calories():
     age = current_user.age
     weight = current_user.weight
@@ -852,201 +866,281 @@ def api_remove_diet_food():
 @login_required
 def create_diet_plan():
     current_weekday = dt.now().strftime("%A")
+    user = current_user
+    today = dt.today() # Use dt.today() for date objects
+    max_generations_per_day = 2
+
+    if user.last_plan_generation_date != today:
+        user.plan_generations_today = 0
+        user.last_plan_generation_date = today
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Error resetting generation count for user {user.id}: {e}")
     
+    generations_left_today = max(0, max_generations_per_day - user.plan_generations_today)
+        
     if request.method == 'POST':
         describe_diet = request.form.get('describe_diet')
-        if describe_diet:
-            # Call generation function directly here
-            success = generate_and_store_diet_plan(current_user.id, describe_diet)
-            if not success:
-                flash('There was an issue generating your AI diet plan. Please try again or check your profile settings.', 'error')
-                # Fall through to render with potentially empty or old plan
-        else:
+        if not describe_diet:
             flash('Please describe your diet plan if you want to generate a new one.', 'error')
-        # After POST (generation attempt or error), always fetch the current state of the plan
-        plan = get_existing_diet_plan() 
-        return redirect(url_for('create_diet_plan')) # Redirect to GET to show updated plan or message
+            return redirect(url_for('create_diet_plan'))
 
-    # For GET request, just fetch the existing plan
+        if not all([user.daily_calorie_goal, user.weight, user.height, user.age, user.gender]):
+            flash('Please complete your profile in settings before generating a diet plan.', 'error')
+            return redirect(url_for('settings')) 
+
+        if user.plan_generations_today >= max_generations_per_day and not user.is_admin:
+            flash(f'You have reached the maximum of {max_generations_per_day} diet plan generations for today.', 'warning')
+            return redirect(url_for('create_diet_plan'))
+
+        if not user.is_admin: # Only increment for non-admins if you want admins to have unlimited without count
+            user.plan_generations_today += 1
+        
+        generation_token = secrets.token_hex(16)
+        user.active_diet_generation_token = generation_token
+        user.last_diet_generation_status = "pending"
+        
+        try:
+            db.session.commit() 
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Error setting up diet generation token or count for user {user.id}: {e}")
+            flash('An error occurred preparing the diet generation. Please try again.', 'error')
+            return redirect(url_for('create_diet_plan'))
+
+        thread = threading.Thread(target=run_plan_generation_in_background, args=(app, user.id, describe_diet, generation_token))
+        thread.daemon = True 
+        thread.start()
+        
+        # Redirect to a new status page, passing the token
+        return redirect(url_for('diet_plan_generating_status_page', generation_token=generation_token))
+
     plan = get_existing_diet_plan()
-    return render_template('create_diet_plan.html', current_day_name=current_weekday, diet_plan=plan)
-
-
-def generate_and_store_diet_plan(user_id, describe_diet=''):
-    user = User.query.get(user_id) # Fetch user to get their details
-    if not user:
-        print(f"User with ID {user_id} not found.")
-        return False
-
-    calorie_goal = user.daily_calorie_goal
-    weight = user.weight
-    height = user.height
-    age = user.age
-    gender = user.gender
-
-    if not all([calorie_goal, weight, height, age, gender]):
-        print(f"User {user_id} is missing some profile details (calorie goal, weight, height, age, or gender). Cannot generate AI plan accurately.")
-        flash('Please complete your profile in settings before generating a diet plan.', 'error')
-        redirect(url_for('settings'))
-    prompt = (
-        f"Generate a weekly diet plan for a user with the following details:\n"
-        f"- Daily Calorie Goal: Approximately {calorie_goal or 'not set'} kcal\n"
-        f"- Weight: {weight or 'not set'} kg\n"
-        f"- Height: {height or 'not set'} cm\n"
-        f"- Age: {age or 'not set'} years\n"
-        f"- Gender: {gender or 'not set'}\n"
-        f"- User's preferences: {describe_diet}\n\n"
-        f"The plan should cover all 7 days of the week (Monday to Sunday).\n"
-        f"For each day, include the following meal types: Breakfast, Mid-Morning Snack, Lunch, Afternoon Snack, Dinner, Evening Snack.\n"
-        f"For each meal, provide a list of food items. Each food item object must include:\n"
-        f"  - 'food_name' (string): The name of the food.\n"
-        f"  - 'calories' (integer): Estimated calorie count. This field is mandatory.\n"
-        f"  - 'quantity' (string): The amount (e.g., '1 cup', '100g', '1 medium apple').\n"
-        f"  - 'notes' (string, optional): Brief notes, if any (e.g., 'with skim milk'). If no notes, this can be an empty string or omitted.\n\n"
-        f"The total calories for each day should be as close as possible to the user's daily calorie goal.\n"
-        f"Return the entire plan STRICTLY as a single JSON object. Do NOT include any explanatory text, markdown, or anything else outside of the JSON object.\n"
-        f"The JSON object should have days of the week as top-level keys (e.g., 'Monday', 'Tuesday', ...).\n"
-        f"Each day key should map to an object containing meal types as keys the only allowed keys are ('Breakfast', 'Mid-Morning Snack', 'Lunch', 'Afternoon Snack', 'Dinner', 'Evening Snack')\n"
-        f"You dont need to provide all the meal types just as many as necessary for the ideal diet programm \n"
-        f"Each meal type key should map to an array of food item objects as described above.\n\n"
-        f"Example of the required JSON structure for one day and one meal:\n"
-        f"{{\n"
-        f"  \"Monday\": {{\n"
-        f"    \"Breakfast\": [\n"
-        f"      {{\n"
-        f"        \"food_name\": \"Oatmeal\",\n"
-        f"        \"calories\": 300,\n"
-        f"        \"quantity\": \"1 cup\",\n"
-        f"        \"notes\": \"Made with water and a sprinkle of cinnamon\"\n"
-        f"      }},\n"
-        f"      {{\n"
-        f"        \"food_name\": \"Banana\",\n"
-        f"        \"calories\": 105,\n"
-        f"        \"quantity\": \"1 medium\"\n"
-        f"      }}\n"
-        f"    ],\n"
-        f"    \"Mid-Morning Snack\": [\n"
-        f"      // ... more items ...\n"
-        f"    ]\n"
-        f"    // ... other meal types ...\n"
-        f"  }},\n"
-        f"  \"Tuesday\": {{\n"
-        f"    // ... meals and items for Tuesday ...\n"
-        f"  }}\n"
-        f"  // ... etc. for all 7 days ...\n"
-        f"}}\n"
-        f"Ensure the output is ONLY the JSON object."
+    return render_template(
+        'create_diet_plan.html', 
+        current_day_name=current_weekday, 
+        diet_plan=plan,
+        generations_left_today=generations_left_today,
+        max_generations_per_day=max_generations_per_day
     )
 
+# This is the wrapper function that the thread will execute
+def run_plan_generation_in_background(flask_app, user_id, describe_diet, generation_token):
+    with flask_app.app_context():
+        generate_and_store_diet_plan_logic(user_id, describe_diet, generation_token)
+
+def generate_and_store_diet_plan_logic(user_id, describe_diet='', generation_token=None):
+    user = User.query.get(user_id)
+    final_status_to_set = "failed"
+    items_added_to_db = 0
+
+    if not user:
+        app.logger.error(f"Thread: User with ID {user_id} not found for plan generation (Token: {generation_token}).")
+        return False 
+
+    if user.active_diet_generation_token != generation_token:
+        app.logger.info(f"Thread: Diet generation task for user {user_id} with token {generation_token} was superseded or is invalid. Exiting.")
+        return False
+
     try:
-        response = openai.chat.completions.create(
-            model="gpt-4o-mini", 
-            messages=[
-                {"role": "system", "content": "You are a diet planning assistant that outputs JSON."},
-                {"role": "user", "content": prompt}
-            ],
-            response_format={"type": "json_object"}
+        app.logger.info(f"Thread: Starting diet plan generation for user {user_id}, token {generation_token}.")
+        calorie_goal = user.daily_calorie_goal
+        weight = user.weight
+        height = user.height
+        age = user.age
+        gender = user.gender
+
+        prompt = (
+            f"Generate a weekly diet plan for a user with the following details:\n"
+            f"- Daily Calorie Goal: Approximately {calorie_goal or 'not set'} kcal\n"
+            f"- Weight: {weight or 'not set'} kg\n"
+            f"- Height: {height or 'not set'} cm\n"
+            f"- Age: {age or 'not set'} years\n"
+            f"- Gender: {gender or 'not set'}\n"
+            f"- User's preferences: {describe_diet}\n\n"
+            f"The plan should cover all 7 days of the week (Monday to Sunday).\n"
+            f"For each day, include the following meal types: Breakfast, Mid-Morning Snack, Lunch, Afternoon Snack, Dinner, Evening Snack.\n"
+            f"For each meal, provide a list of food items. Each food item object must include:\n"
+            f"  - 'food_name' (string): The name of the food.\n"
+            f"  - 'calories' (integer): Estimated calorie count. This field is mandatory.\n"
+            f"  - 'quantity' (string): The amount (e.g., '1 cup', '100g', '1 medium apple').\n"
+            f"  - 'notes' (string, optional): Brief notes, if any (e.g., 'with skim milk'). If no notes, this can be an empty string or omitted.\n\n"
+            f"The total calories for each day should be as close as possible to the user's daily calorie goal.\n"
+            f"Return the entire plan STRICTLY as a single JSON object. Do NOT include any explanatory text, markdown, or anything else outside of the JSON object.\n"
+            f"The JSON object should have days of the week as top-level keys (e.g., 'Monday', 'Tuesday', ...).\n"
+            f"Each day key should map to an object containing meal types as keys the only allowed keys are ('Breakfast', 'Mid-Morning Snack', 'Lunch', 'Afternoon Snack', 'Dinner', 'Evening Snack')\n"
+            f"You dont need to provide all the meal types just as many as necessary for the ideal diet programm \n"
+            f"Each meal type key should map to an array of food item objects as described above.\n\n"
+            f"Example of the required JSON structure for one day and one meal:\n"
+            f"{{\n"
+            f"  \"Monday\": {{\n"
+            f"    \"Breakfast\": [\n"
+            f"      {{\n"
+            f"        \"food_name\": \"Oatmeal\",\n"
+            f"        \"calories\": 300,\n"
+            f"        \"quantity\": \"1 cup\",\n"
+            f"        \"notes\": \"Made with water and a sprinkle of cinnamon\"\n"
+            f"      }},\n"
+            f"      {{\n"
+            f"        \"food_name\": \"Banana\",\n"
+            f"        \"calories\": 105,\n"
+            f"        \"quantity\": \"1 medium\"\n"
+            f"      }}\n"
+            f"    ],\n"
+            f"    \"Mid-Morning Snack\": [\n"
+            f"      // ... more items ...\n"
+            f"    ]\n"
+            f"    // ... other meal types ...\n"
+            f"  }},\n"
+            f"  \"Tuesday\": {{\n"
+            f"    // ... meals and items for Tuesday ...\n"
+            f"  }}\n"
+            f"  // ... etc. for all 7 days ...\n"
+            f"}}\n"
+            f"Ensure the output is ONLY the JSON object."
         )
-        ai_generated_plan_str = response.choices[0].message.content
-        parsed_plan = json.loads(ai_generated_plan_str)
-    except json.JSONDecodeError as e:
-        print(f"Error: AI did not return valid JSON. {e}")
-        print(f"AI response string: {ai_generated_plan_str}")
-        return False # Indicate failure
-    except Exception as e:
-        print(f"Error calling OpenAI API: {e}")
-        return False # Indicate failure
+        
+        ai_generated_plan_str = None
+        try:
+            response = openai.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "You are a diet planning assistant that outputs JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                response_format={"type": "json_object"}
+            )
+            ai_generated_plan_str = response.choices[0].message.content
+            parsed_plan = json.loads(ai_generated_plan_str)
+        except json.JSONDecodeError as e:
+            app.logger.error(f"Thread: AI JSONDecodeError for user {user_id} (Token: {generation_token}). Error: {e}. Response: {ai_generated_plan_str[:500] if ai_generated_plan_str else 'None'}")
+            raise
+        except Exception as e:
+            app.logger.error(f"Thread: OpenAI API call error for user {user_id} (Token: {generation_token}): {e}")
+            raise
 
-    if not parsed_plan:
-        print("AI returned an empty plan.")
-        return False
+        if not parsed_plan or not isinstance(parsed_plan, dict) or not any(parsed_plan.values()):
+            app.logger.warning(f"Thread: AI returned empty/invalid plan for user {user_id} (Token: {generation_token}). Plan: {parsed_plan}")
+        else:
+            UserDietDay.query.filter_by(user_id=user_id).delete(synchronize_session='fetch')
+            app.logger.info(f"Thread: Marked old diet days for user {user_id} for deletion.")
+            try:
+                db.session.flush() # Execute pending DELETE SQL statements in the transaction
+                app.logger.info(f"Thread: Flushed session after marking deletions for user {user_id}.")
+            except Exception as e_flush:
+                # Log the flush error, but proceed. The final commit will likely fail if this is critical.
+                app.logger.error(f"Thread: Error flushing session after deletions for user {user_id}: {e_flush}")
+                # Depending on the error, you might choose to raise it or handle it differently.
+                # For now, we log and let the subsequent operations attempt.
 
-    # Clear existing diet plan for the user
-    # This is a more thorough way to delete to ensure related items are handled
-    # if cascade delete is not perfectly configured.
-    try:
-        old_diet_days = UserDietDay.query.filter_by(user_id=user_id).all()
-        for old_day in old_diet_days:
-            old_meals = Meal.query.filter_by(user_diet_day_id=old_day.id).all()
-            for old_meal in old_meals:
-                MealItem.query.filter_by(meal_id=old_meal.id).delete(synchronize_session=False)
-            Meal.query.filter_by(user_diet_day_id=old_day.id).delete(synchronize_session=False)
-        UserDietDay.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-    except Exception as e:
-        db.session.rollback()
-        print(f"Error clearing old diet plan: {e}")
-        return False
+            DAY_NAME_TO_ENUM = {day.value: day for day in DayOfWeekEnum}
+            MEAL_TYPE_TO_ENUM = {meal.value: meal for meal in MealTypeEnum}
 
-    DAY_NAME_TO_ENUM = {day.value: day for day in DayOfWeekEnum}
-    MEAL_TYPE_TO_ENUM = {meal.value: meal for meal in MealTypeEnum}
-
-    try:
-        for day_name_str, meals_data in parsed_plan.items():
-            day_enum = DAY_NAME_TO_ENUM.get(day_name_str)
-            if not day_enum:
-                print(f"Warning: Unknown day name '{day_name_str}' in AI plan. Skipping.")
-                continue
-
-            diet_day = UserDietDay(user_id=user_id, day_of_week=day_enum)
-            db.session.add(diet_day)
-            if not isinstance(meals_data, dict):
-                print(f"Warning: Expected a dictionary for meals in '{day_name_str}', got {type(meals_data)}. Skipping day.")
-                continue
-
-            for meal_type_str, items_data in meals_data.items():
-                meal_type_enum = MEAL_TYPE_TO_ENUM.get(meal_type_str)
-                if not meal_type_enum:
-                    print(f"Warning: Unknown meal type '{meal_type_str}' for '{day_name_str}'. Skipping meal.")
+            for day_name_str, meals_data in parsed_plan.items():
+                day_enum = DAY_NAME_TO_ENUM.get(day_name_str)
+                if not day_enum:
+                    app.logger.warning(f"Thread: Unknown day '{day_name_str}' for user {user_id}. Skipping.")
                     continue
                 
-                meal = Meal(user_diet_day=diet_day, meal_type=meal_type_enum)
-                db.session.add(meal)
+                app.logger.info(f"Thread: Processing day '{day_enum.value}' for user {user_id}.")
+                diet_day = UserDietDay(user_id=user_id, day_of_week=day_enum)
+                db.session.add(diet_day)
+                items_added_to_db +=1
+                app.logger.info(f"Thread: Added UserDietDay for '{day_enum.value}' to session. Object: {diet_day}")
 
-                if not isinstance(items_data, list):
-                    print(f"Warning: Expected a list for items in '{meal_type_str}' for '{day_name_str}', got {type(items_data)}. Skipping meal.")
+                _meals_created_for_this_day = {}
+                app.logger.debug(f"Thread: Initialized _meals_created_for_this_day for '{day_enum.value}': {list(_meals_created_for_this_day.keys())}")
+
+                if not isinstance(meals_data, dict):
+                    app.logger.warning(f"Thread: Expected dict for meals_data in '{day_name_str}', user {user_id}. Got {type(meals_data)}. Skipping day.")
                     continue
 
-                for item_dict in items_data:
-                    if not isinstance(item_dict, dict):
-                        print(f"Warning: Expected a dictionary for a meal item, got {type(item_dict)}. Skipping item.")
+                # 1. Merge all items for each meal type (normalize keys)
+                merged_meals = {}
+                for meal_type_str, items_data in meals_data.items():
+                    # Normalize meal type string
+                    normalized_meal_type_str = meal_type_str.strip().title()
+                    meal_type_enum = MEAL_TYPE_TO_ENUM.get(normalized_meal_type_str)
+                    if not meal_type_enum:
+                        app.logger.warning(f"Thread: Day '{day_enum.value}': Unknown meal type string '{meal_type_str}'. Skipping this meal type.")
                         continue
+                    if not isinstance(items_data, list):
+                        app.logger.warning(f"Thread: Day '{day_enum.value}', Meal '{meal_type_enum}': Expected list for items_data. Got {type(items_data)}. Skipping items for this meal.")
+                        continue
+                    merged_meals.setdefault(meal_type_enum, []).extend(items_data)
 
-                    food_name = item_dict.get('food_name')
-                    calories_val = item_dict.get('calories')
-                    quantity = item_dict.get('quantity')
-                    notes = item_dict.get('notes', '') # Default to empty string
+                # 2. Defensive: Remove any existing Meal objects for this day/meal_type in the session (shouldn't be needed, but just in case)
+                for meal_type_enum in merged_meals.keys():
+                    existing_meal = Meal.query.filter_by(user_diet_day=diet_day, meal_type=meal_type_enum).first()
+                    if existing_meal:
+                        db.session.delete(existing_meal)
+                        db.session.flush()
 
-                    if not food_name or food_name.strip() == "":
-                        print(f"Warning: Skipping item due to missing or empty food_name: {item_dict}")
-                        continue
-                    if calories_val is None:
-                        print(f"Warning: Skipping item '{food_name}' due to missing calories.")
-                        continue
-                    
-                    try:
-                        calories = int(calories_val)
-                    except (ValueError, TypeError):
-                        print(f"Warning: Skipping item '{food_name}' due to invalid calorie format: {calories_val}")
-                        continue
-                    
-                    meal_item = MealItem(
-                        meal=meal, # Associate with the meal object
-                        food_name=food_name.strip(),
-                        calories=calories,
-                        quantity=quantity.strip() if quantity else None,
-                        notes=notes.strip() if notes else None
-                    )
-                    db.session.add(meal_item)
-        
-        db.session.commit()
-        print(f"Successfully generated and stored AI diet plan for user {user_id}.")
-        return True
+                # 3. Now create only one Meal per meal_type_enum
+                for meal_type_enum, items_data in merged_meals.items():
+                    meal_obj = Meal(user_diet_day=diet_day, meal_type=meal_type_enum)
+                    db.session.add(meal_obj)
+                    items_added_to_db += 1
+                    for item_dict in items_data:
+                        if not isinstance(item_dict, dict):
+                            continue
+                        food_name = item_dict.get('food_name')
+                        calories_val = item_dict.get('calories')
+                        quantity = item_dict.get('quantity')
+                        notes = item_dict.get('notes', '')
+                        if not food_name or not isinstance(food_name, str) or food_name.strip() == "":
+                            continue
+                        if calories_val is None:
+                            continue
+                        try:
+                            calories = int(calories_val)
+                        except (ValueError, TypeError):
+                            continue
+                        meal_item = MealItem(
+                            meal=meal_obj,
+                            food_name=food_name.strip(),
+                            calories=calories,
+                            quantity=quantity.strip() if quantity and isinstance(quantity, str) else quantity,
+                            notes=notes.strip() if notes and isinstance(notes, str) else notes
+                        )
+                        db.session.add(meal_item)
+                        items_added_to_db += 1
+            
+            if items_added_to_db > 0:
+                app.logger.info(f"Thread: Attempting to commit {items_added_to_db} DB objects for user {user_id}, token {generation_token}.")
+                db.session.commit()
+                app.logger.info(f"Thread: Successfully committed diet plan for user {user_id}, token {generation_token}.")
+                final_status_to_set = "completed"
+            else:
+                app.logger.warning(f"Thread: No valid diet items processed for user {user_id}, token {generation_token}. Plan considered failed.")
+                db.session.rollback() # Rollback if only deletions happened but no new items.
+
     except Exception as e:
         db.session.rollback()
-        print(f"Error processing AI plan and saving to DB: {e}")
+        app.logger.error(f"Thread: General exception during plan generation for user {user_id} (Token: {generation_token}): {e}")
         import traceback
-        traceback.print_exc()
-        return False
+        app.logger.error(traceback.format_exc()) # Ensure full traceback is logged
+        final_status_to_set = "failed"
+    finally:
+        with app.app_context(): 
+            user_to_update_status = User.query.get(user_id)
+            if user_to_update_status:
+                if user_to_update_status.active_diet_generation_token == generation_token:
+                    user_to_update_status.last_diet_generation_status = final_status_to_set
+                    try:
+                        db.session.commit()
+                        app.logger.info(f"Thread: Final status for user {user_id}, token {generation_token} set to '{final_status_to_set}'.")
+                    except Exception as se:
+                        db.session.rollback()
+                        app.logger.error(f"Thread: CRITICAL error committing final status '{final_status_to_set}' for user {user_id}, token {generation_token}. DB Error: {se}")
+                else:
+                    app.logger.info(f"Thread: Final status update for token {generation_token} (user {user_id}) skipped. Active token is '{user_to_update_status.active_diet_generation_token}'. Status was '{final_status_to_set}'.")
+            else:
+                app.logger.error(f"Thread: User {user_id} not found for final status update (Token: {generation_token}). Status was '{final_status_to_set}'.")
+    
+    return final_status_to_set == "completed"
 
 def get_existing_diet_plan(): # Renamed for clarity
     user = current_user
@@ -1073,3 +1167,17 @@ def get_existing_diet_plan(): # Renamed for clarity
                 } for item in items_for_meal
             ]
     return plan_data
+
+@app.route('/diet_plan_generating/<generation_token>')
+@login_required
+def diet_plan_generating_status_page(generation_token):
+    user = current_user
+    initial_status = "pending" 
+    # Check if the token matches and what the status is, to potentially skip polling
+    if user.active_diet_generation_token == generation_token:
+        initial_status = user.last_diet_generation_status
+    # If token doesn't match, it might be an old link, JS will handle it.
+    
+    return render_template('diet_plan_generating.html', 
+                           generation_token=generation_token,
+                           initial_status=initial_status)
