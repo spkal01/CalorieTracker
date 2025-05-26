@@ -50,7 +50,11 @@
             </div>
         </div>
         <!-- Centered View Details Button at the bottom -->
-        <div class="flex justify-center mt-8">
+        <div class="flex justify-center mt-8 space-x-4">
+            <a href="{{ url_for('create_diet_plan') }}"
+               class="bg-green-600 hover:bg-green-700 text-white font-semibold px-8 py-3 rounded-lg text-lg shadow transition">
+                View and Create a Diet Plan
+            </a>
             <a href="{{ url_for('saved') }}"
                class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded-lg text-lg shadow transition">
                 View Details

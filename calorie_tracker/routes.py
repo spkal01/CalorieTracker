@@ -17,7 +17,8 @@ from calorie_tracker import (
 )
 
 from calorie_tracker.models import (
-    User, FoodItem, SavedCalories
+    User, FoodItem, SavedCalories, # Keep existing
+    UserDietDay, Meal, MealItem, DayOfWeekEnum, MealTypeEnum # Add new models and enums
 )
 
 from flask_sqlalchemy import SQLAlchemy
@@ -486,6 +487,79 @@ def api_ai_analysis():
     analysis = get_ai_analysis()  # This returns markdown
     return jsonify({'analysis': analysis})
 
+@app.route('/api/get_diet_plan_item_statuses', methods=['GET'])
+@login_required
+def api_get_diet_plan_item_statuses():
+    """
+    Returns a list of food names that the current user has logged (marked as "done")
+    for today in their SavedCalories.
+    """
+    today_date_str = dt.now().strftime("%Y-%m-%d")
+    entry = SavedCalories.query.filter_by(user_id=current_user.id, date=today_date_str).first()
+    
+    done_foods = []
+    if entry:
+        food_items_for_today = FoodItem.query.filter_by(saved_calories_id=entry.id).all()
+        done_foods = [item.name for item in food_items_for_today]
+        
+    return jsonify({'done_foods': done_foods})
+
+@app.route('/api/update_diet_plan_item', methods=['POST'])
+@login_required
+def api_update_diet_plan_item():
+    data = request.get_json()
+    if not data:
+        return jsonify({'status': 'error', 'message': 'Invalid request. No data provided.'}), 400
+
+    meal_item_id = data.get('meal_item_id')
+    new_food_name = data.get('food_name')
+    new_quantity = data.get('quantity') # This will be a string, can be empty
+    new_calories = data.get('calories') # This can be an integer or null
+
+    if not meal_item_id:
+        return jsonify({'status': 'error', 'message': 'Meal item ID is required.'}), 400
+    
+    if new_food_name is None or new_food_name.strip() == "": # Food name must not be empty
+        return jsonify({'status': 'error', 'message': 'Food name cannot be empty.'}), 400
+
+    # Validate calories if provided (it can be null)
+    if new_calories is not None:
+        try:
+            new_calories = int(new_calories)
+            if new_calories < 0:
+                raise ValueError("Calories cannot be negative.")
+        except (ValueError, TypeError):
+            return jsonify({'status': 'error', 'message': 'Invalid calorie format. Must be a non-negative integer or null.'}), 400
+
+    # Find the meal item and ensure it belongs to the current user
+    meal_item = db.session.query(MealItem).join(Meal).join(UserDietDay).filter(
+        MealItem.id == meal_item_id,
+        UserDietDay.user_id == current_user.id
+    ).first()
+
+    if not meal_item:
+        return jsonify({'status': 'error', 'message': 'Meal item not found or access denied.'}), 404
+
+    try:
+        meal_item.food_name = new_food_name.strip()
+        meal_item.quantity = new_quantity.strip() if new_quantity is not None else None # Store empty string as None or as is, depending on preference
+        meal_item.calories = new_calories # Assign directly, can be int or None
+
+        db.session.commit()
+
+        updated_item_data = {
+            "id": meal_item.id,
+            "food_name": meal_item.food_name,
+            "calories": meal_item.calories,
+            "quantity": meal_item.quantity,
+            "notes": meal_item.notes # Include notes even if not edited by this form
+        }
+        return jsonify({'status': 'success', 'message': 'Diet plan item updated successfully.', 'updated_item': updated_item_data}), 200
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating meal item {meal_item_id}: {e}")
+        return jsonify({'status': 'error', 'message': f'An internal error occurred: {str(e)}'}), 500
+
 def ai_reccomend_daily_calories():
     age = current_user.age
     weight = current_user.weight
@@ -713,3 +787,296 @@ def describe_meal():
     if foods:
         flash('Meal analyzed and foods added!', 'success')
     return redirect(url_for('saved'))
+
+
+@app.route('/api/add_diet_food', methods=['POST'])
+@login_required # Ensure @login_required if it wasn't already
+def api_diet_plan(): # Renaming to api_add_diet_food for clarity if you prefer
+    data = request.json
+    if not data or 'food_name' not in data or 'calories' not in data: # Ensure calories are present
+        return jsonify({'error': 'Invalid input, food_name and calories required'}), 400
+    
+    food_name = data['food_name']
+    calories = data.get('calories', 0) # Default to 0 if not provided, though frontend sends it
+
+    if not isinstance(food_name, str) or not isinstance(calories, int):
+        return jsonify({'error': 'Invalid data format for food_name or calories'}), 400
+
+    today_date_str = dt.now().strftime("%Y-%m-%d")
+    entry = SavedCalories.query.filter_by(date=today_date_str, user_id=current_user.id).first()
+    if not entry:
+        entry = SavedCalories(date=today_date_str, user_id=current_user.id)
+        db.session.add(entry)
+        # Commit here or after adding food item, depending on preference for atomicity
+        # For simplicity, committing after adding food item is fine.
+    
+    # Check if this food item already exists for this entry to prevent duplicates if re-clicked without un-striking
+    existing_food_item = FoodItem.query.filter_by(saved_calories_id=entry.id, name=food_name).first()
+    if not existing_food_item:
+        food = FoodItem(saved_calories_id=entry.id, name=food_name, calories=int(calories))
+        db.session.add(food)
+        db.session.commit()
+        return jsonify({'status': 'success', 'message': 'Food item added'}), 200
+    else:
+        # Item already logged for today, consider it a successful "mark as done" if it wasn't already.
+        # No change needed in DB if it's already there.
+        return jsonify({'status': 'success', 'message': 'Food item already logged for today'}), 200
+
+
+@app.route('/api/remove_diet_food', methods=['POST'])
+@login_required
+def api_remove_diet_food():
+    data = request.json
+    if not data or 'food_name' not in data:
+        return jsonify({'error': 'Invalid input, food_name required'}), 400
+    
+    food_name = data['food_name']
+
+    today_date_str = dt.now().strftime("%Y-%m-%d")
+    entry = SavedCalories.query.filter_by(date=today_date_str, user_id=current_user.id).first()
+    
+    if not entry:
+        # If there's no entry for today, the food couldn't have been logged.
+        return jsonify({'status': 'success', 'message': 'No saved calories entry for today, nothing to remove.'}), 200
+
+    food_item = FoodItem.query.filter_by(saved_calories_id=entry.id, name=food_name).first()
+    
+    if food_item:
+        db.session.delete(food_item)
+        db.session.commit()
+        return jsonify({'status': 'success', 'message': 'Food item removed'}), 200
+    else:
+        # Food item not found in today's log.
+        return jsonify({'status': 'success', 'message': 'Food item not found in today\'s log.'}), 200
+    
+
+def get_diet_plan(describe_diet=''):
+    """
+    Fetches the user's diet plan. If none exists, generates a sample one.
+    Returns the plan structured as a dictionary:
+    { day_name: { meal_type_name: [meal_items] } }
+    """
+    user = current_user
+    plan_data = {}
+
+    # Check if any diet days exist for the user
+    user_has_plan = UserDietDay.query.filter_by(user_id=user.id).first()
+
+    if not user_has_plan or describe_diet != '':
+        generate_and_store_diet_plan(user.id, describe_diet)
+
+    diet_days_for_user = UserDietDay.query.filter_by(user_id=user.id).order_by(UserDietDay.day_of_week).all()
+
+    for diet_day in diet_days_for_user:
+        day_name = diet_day.day_of_week.value # e.g., "Monday"
+        plan_data[day_name] = {}
+        
+        meals_for_day = Meal.query.filter_by(user_diet_day_id=diet_day.id).order_by(Meal.meal_type).all()
+        for meal in meals_for_day:
+            meal_type_name = meal.meal_type.value # e.g., "Breakfast"
+            
+            items_for_meal = MealItem.query.filter_by(meal_id=meal.id).all()
+            plan_data[day_name][meal_type_name] = [
+                {
+                    "id": item.id, # Good to have for potential future interactions (edit/delete item)
+                    "food_name": item.food_name,
+                    "calories": item.calories,
+                    "quantity": item.quantity,
+                    "notes": item.notes
+                } for item in items_for_meal
+            ]
+    return plan_data
+
+@app.route('/create_diet_plan', methods=['GET', 'POST'])
+@login_required
+def create_diet_plan():
+    current_weekday = dt.now().strftime("%A")
+    plan = get_diet_plan()  
+    if request.method == 'POST':
+        describe_diet = request.form.get('describe_diet')
+        if describe_diet:
+            plan = get_diet_plan(describe_diet)
+            return render_template('create_diet_plan.html', current_day_name=current_weekday, diet_plan=plan)
+        else:
+            flash('Please describe your diet plan if you want to generate a new one.', 'error')
+            return redirect(url_for('create_diet_plan'))
+
+    # For GET request
+    return render_template('create_diet_plan.html', current_day_name=current_weekday, diet_plan=plan)
+
+
+def generate_and_store_diet_plan(user_id, describe_diet=''):
+    user = User.query.get(user_id) # Fetch user to get their details
+    if not user:
+        print(f"User with ID {user_id} not found.")
+        return False
+
+    calorie_goal = user.daily_calorie_goal
+    weight = user.weight
+    height = user.height
+    age = user.age
+    gender = user.gender
+
+    if not all([calorie_goal, weight, height, age, gender]):
+        print(f"User {user_id} is missing some profile details (calorie goal, weight, height, age, or gender). Cannot generate AI plan accurately.")
+        flash('Please complete your profile in settings before generating a diet plan.', 'error')
+        redirect(url_for('settings'))
+    prompt = (
+        f"Generate a weekly diet plan for a user with the following details:\n"
+        f"- Daily Calorie Goal: Approximately {calorie_goal or 'not set'} kcal\n"
+        f"- Weight: {weight or 'not set'} kg\n"
+        f"- Height: {height or 'not set'} cm\n"
+        f"- Age: {age or 'not set'} years\n"
+        f"- Gender: {gender or 'not set'}\n"
+        f"- User's preferences: {describe_diet}\n\n"
+        f"The plan should cover all 7 days of the week (Monday to Sunday).\n"
+        f"For each day, include the following meal types: Breakfast, Mid-Morning Snack, Lunch, Afternoon Snack, Dinner, Evening Snack.\n"
+        f"For each meal, provide a list of food items. Each food item object must include:\n"
+        f"  - 'food_name' (string): The name of the food.\n"
+        f"  - 'calories' (integer): Estimated calorie count. This field is mandatory.\n"
+        f"  - 'quantity' (string): The amount (e.g., '1 cup', '100g', '1 medium apple').\n"
+        f"  - 'notes' (string, optional): Brief notes, if any (e.g., 'with skim milk'). If no notes, this can be an empty string or omitted.\n\n"
+        f"The total calories for each day should be as close as possible to the user's daily calorie goal.\n"
+        f"Return the entire plan STRICTLY as a single JSON object. Do NOT include any explanatory text, markdown, or anything else outside of the JSON object.\n"
+        f"The JSON object should have days of the week as top-level keys (e.g., 'Monday', 'Tuesday', ...).\n"
+        f"Each day key should map to an object containing meal types as keys the only allowed keys are ('Breakfast', 'Mid-Morning Snack', 'Lunch', 'Afternoon Snack', 'Dinner', 'Evening Snack')\n"
+        f"You dont need to provide all the meal types just as many as necessary for the ideal diet programm \n"
+        f"Each meal type key should map to an array of food item objects as described above.\n\n"
+        f"Example of the required JSON structure for one day and one meal:\n"
+        f"{{\n"
+        f"  \"Monday\": {{\n"
+        f"    \"Breakfast\": [\n"
+        f"      {{\n"
+        f"        \"food_name\": \"Oatmeal\",\n"
+        f"        \"calories\": 300,\n"
+        f"        \"quantity\": \"1 cup\",\n"
+        f"        \"notes\": \"Made with water and a sprinkle of cinnamon\"\n"
+        f"      }},\n"
+        f"      {{\n"
+        f"        \"food_name\": \"Banana\",\n"
+        f"        \"calories\": 105,\n"
+        f"        \"quantity\": \"1 medium\"\n"
+        f"      }}\n"
+        f"    ],\n"
+        f"    \"Mid-Morning Snack\": [\n"
+        f"      // ... more items ...\n"
+        f"    ]\n"
+        f"    // ... other meal types ...\n"
+        f"  }},\n"
+        f"  \"Tuesday\": {{\n"
+        f"    // ... meals and items for Tuesday ...\n"
+        f"  }}\n"
+        f"  // ... etc. for all 7 days ...\n"
+        f"}}\n"
+        f"Ensure the output is ONLY the JSON object."
+    )
+
+    try:
+        response = openai.chat.completions.create(
+            model="gpt-4o-mini", 
+            messages=[
+                {"role": "system", "content": "You are a diet planning assistant that outputs JSON."},
+                {"role": "user", "content": prompt}
+            ],
+            response_format={"type": "json_object"}
+        )
+        ai_generated_plan_str = response.choices[0].message.content
+        parsed_plan = json.loads(ai_generated_plan_str)
+    except json.JSONDecodeError as e:
+        print(f"Error: AI did not return valid JSON. {e}")
+        print(f"AI response string: {ai_generated_plan_str}")
+        return False # Indicate failure
+    except Exception as e:
+        print(f"Error calling OpenAI API: {e}")
+        return False # Indicate failure
+
+    if not parsed_plan:
+        print("AI returned an empty plan.")
+        return False
+
+    # Clear existing diet plan for the user
+    # This is a more thorough way to delete to ensure related items are handled
+    # if cascade delete is not perfectly configured.
+    try:
+        old_diet_days = UserDietDay.query.filter_by(user_id=user_id).all()
+        for old_day in old_diet_days:
+            old_meals = Meal.query.filter_by(user_diet_day_id=old_day.id).all()
+            for old_meal in old_meals:
+                MealItem.query.filter_by(meal_id=old_meal.id).delete(synchronize_session=False)
+            Meal.query.filter_by(user_diet_day_id=old_day.id).delete(synchronize_session=False)
+        UserDietDay.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error clearing old diet plan: {e}")
+        return False
+
+    DAY_NAME_TO_ENUM = {day.value: day for day in DayOfWeekEnum}
+    MEAL_TYPE_TO_ENUM = {meal.value: meal for meal in MealTypeEnum}
+
+    try:
+        for day_name_str, meals_data in parsed_plan.items():
+            day_enum = DAY_NAME_TO_ENUM.get(day_name_str)
+            if not day_enum:
+                print(f"Warning: Unknown day name '{day_name_str}' in AI plan. Skipping.")
+                continue
+
+            diet_day = UserDietDay(user_id=user_id, day_of_week=day_enum)
+            db.session.add(diet_day)
+            if not isinstance(meals_data, dict):
+                print(f"Warning: Expected a dictionary for meals in '{day_name_str}', got {type(meals_data)}. Skipping day.")
+                continue
+
+            for meal_type_str, items_data in meals_data.items():
+                meal_type_enum = MEAL_TYPE_TO_ENUM.get(meal_type_str)
+                if not meal_type_enum:
+                    print(f"Warning: Unknown meal type '{meal_type_str}' for '{day_name_str}'. Skipping meal.")
+                    continue
+                
+                meal = Meal(user_diet_day=diet_day, meal_type=meal_type_enum)
+                db.session.add(meal)
+
+                if not isinstance(items_data, list):
+                    print(f"Warning: Expected a list for items in '{meal_type_str}' for '{day_name_str}', got {type(items_data)}. Skipping meal.")
+                    continue
+
+                for item_dict in items_data:
+                    if not isinstance(item_dict, dict):
+                        print(f"Warning: Expected a dictionary for a meal item, got {type(item_dict)}. Skipping item.")
+                        continue
+
+                    food_name = item_dict.get('food_name')
+                    calories_val = item_dict.get('calories')
+                    quantity = item_dict.get('quantity')
+                    notes = item_dict.get('notes', '') # Default to empty string
+
+                    if not food_name or food_name.strip() == "":
+                        print(f"Warning: Skipping item due to missing or empty food_name: {item_dict}")
+                        continue
+                    if calories_val is None:
+                        print(f"Warning: Skipping item '{food_name}' due to missing calories.")
+                        continue
+                    
+                    try:
+                        calories = int(calories_val)
+                    except (ValueError, TypeError):
+                        print(f"Warning: Skipping item '{food_name}' due to invalid calorie format: {calories_val}")
+                        continue
+                    
+                    meal_item = MealItem(
+                        meal=meal, # Associate with the meal object
+                        food_name=food_name.strip(),
+                        calories=calories,
+                        quantity=quantity.strip() if quantity else None,
+                        notes=notes.strip() if notes else None
+                    )
+                    db.session.add(meal_item)
+        
+        db.session.commit()
+        print(f"Successfully generated and stored AI diet plan for user {user_id}.")
+        return True
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error processing AI plan and saving to DB: {e}")
+        import traceback
+        traceback.print_exc()
+        return False

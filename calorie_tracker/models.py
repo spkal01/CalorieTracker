@@ -1,5 +1,6 @@
 from flask_login import UserMixin
 from calorie_tracker import db
+import enum
 
 class FoodItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -30,3 +31,67 @@ class User(db.Model, UserMixin):
     saved_calories = db.relationship('SavedCalories', backref='user', lazy=True)
     email = db.Column(db.String(150), unique=True, nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
+
+    # Add this relationship for the diet plan
+    diet_days = db.relationship('UserDietDay', backref='user', lazy='dynamic', cascade="all, delete-orphan")
+
+# Add these Enums
+class DayOfWeekEnum(enum.Enum):
+    MONDAY = "Monday"
+    TUESDAY = "Tuesday"
+    WEDNESDAY = "Wednesday"
+    THURSDAY = "Thursday"
+    FRIDAY = "Friday"
+    SATURDAY = "Saturday"
+    SUNDAY = "Sunday"
+
+class MealTypeEnum(enum.Enum):
+    BREAKFAST = "Breakfast"
+    MID_MORNING_SNACK = "Mid-Morning Snack"
+    LUNCH = "Lunch"
+    AFTERNOON_SNACK = "Afternoon Snack"
+    DINNER = "Dinner"
+    EVENING_SNACK = "Evening Snack" # Optional: for more flexibility
+
+class UserDietDay(db.Model):
+    __tablename__ = 'user_diet_day'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    day_of_week = db.Column(db.Enum(DayOfWeekEnum), nullable=False)
+
+    # Relationship to meals for this specific day and user
+    meals = db.relationship('Meal', backref='user_diet_day', lazy='dynamic', cascade="all, delete-orphan")
+
+    # Ensure a user has only one diet plan entry per day_of_week
+    __table_args__ = (db.UniqueConstraint('user_id', 'day_of_week', name='_user_day_of_week_uc'),)
+
+    def __repr__(self):
+        return f"<UserDietDay UserID: {self.user_id} Day: {self.day_of_week.value}>"
+
+class Meal(db.Model):
+    __tablename__ = 'meal'
+    id = db.Column(db.Integer, primary_key=True)
+    user_diet_day_id = db.Column(db.Integer, db.ForeignKey('user_diet_day.id'), nullable=False)
+    meal_type = db.Column(db.Enum(MealTypeEnum), nullable=False)
+
+    # Relationship to individual food items in this meal
+    meal_items = db.relationship('MealItem', backref='meal', lazy='dynamic', cascade="all, delete-orphan")
+
+    # Ensure a UserDietDay has only one of each meal_type (e.g., one Breakfast per Monday plan)
+    __table_args__ = (db.UniqueConstraint('user_diet_day_id', 'meal_type', name='_diet_day_meal_type_uc'),)
+
+    def __repr__(self):
+        return f"<Meal DietDayID: {self.user_diet_day_id} Type: {self.meal_type.value}>"
+
+class MealItem(db.Model):
+    __tablename__ = 'meal_item'
+    id = db.Column(db.Integer, primary_key=True)
+    meal_id = db.Column(db.Integer, db.ForeignKey('meal.id'), nullable=False)
+    food_name = db.Column(db.String(200), nullable=False)
+    calories = db.Column(db.Integer, nullable=True)  # Planned calories
+    quantity = db.Column(db.String(100), nullable=True) # e.g., "1 cup", "100g"
+    notes = db.Column(db.Text, nullable=True) # Optional notes for the item
+
+    def __repr__(self):
+        return f"<MealItem Name: {self.food_name}>"
+

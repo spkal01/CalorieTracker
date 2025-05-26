@@ -1,0 +1,583 @@
+{% extends "base.html" %}
+{% set page_max_width = "max-w-7xl" %}
+
+{% block head_extra %}
+{% endblock %}
+
+{% block content %}
+<style>
+    .editing-active-card {
+        border-width: 3px !important;
+        border-color: #22d3ee !important; /* Tailwind's cyan-500 */
+        box-shadow: 0 0 20px rgba(34, 211, 238, 0.6) !important;
+        transform: scale(1.03) translateY(-8px) !important; /* Slightly more pronounced effect */
+    }
+    /* Ensure other cards reset transform if they had hover effects that included it */
+    .day-plan-card:not(.editing-active-card) {
+        /* transform: none; */ /* This might interfere with existing hover, adjust if needed */
+    }
+    .upcoming-day-card {
+        user-select: none; /* By default, text in upcoming cards is not selectable */
+    }
+    .upcoming-day-card.editing-active-card {
+        user-select: text; /* Make the card itself and its direct text nodes selectable */
+    }
+
+    /* Explicitly make text content selectable within an active upcoming card,
+       overriding any 'select-none' utilities on child elements like LIs. */
+    .upcoming-day-card.editing-active-card h3, /* Day name */
+    .upcoming-day-card.editing-active-card h4, /* Meal type headers */
+    .upcoming-day-card.editing-active-card li, /* List items themselves */
+    .upcoming-day-card.editing-active-card li *  /* All descendants of list items (spans, p tags) */
+    {
+        user-select: text !important;
+    }
+</style>
+{# Define the order for displaying meal types #}
+{% set MEAL_TYPE_DISPLAY_ORDER = [
+    "Breakfast", 
+    "Mid-Morning Snack", 
+    "Lunch", 
+    "Afternoon Snack", 
+    "Dinner", 
+    "Evening Snack"
+] %}
+
+{# The days_of_week list can be derived from the diet_plan keys if always a full week,
+   or kept as a static list to ensure all 7 days are considered.
+   Using a static list is safer if diet_plan might not always contain all 7 days. #}
+{% set days_of_week_ordered = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] %}
+
+<div class="w-full py-10">
+    <h2 class="text-4xl font-extrabold text-zinc-100 mb-12 text-center">Your Weekly Diet Plan</h2>
+
+    {# Current Day - Displayed Wider and on Top #}
+    {% if current_day_name in diet_plan %}
+    <div class="mb-16">
+        <h3 class="text-2xl font-semibold text-blue-300 mb-6 text-center">{{ current_day_name }}'s Plan (Today)</h3>
+        <div id="current-day-card" data-day-name="{{ current_day_name }}" class="day-plan-card bg-gradient-to-br from-zinc-800 via-zinc-800/90 to-blue-900/60 border-2 border-blue-500/70 rounded-2xl shadow-2xl p-8 flex flex-col transition-all duration-300 ease-in-out hover:shadow-blue-500/40 backdrop-blur-sm">
+            <div class="space-y-6 flex-grow">
+                {% set day_plan = diet_plan[current_day_name] %}
+                {% for meal_type_name in MEAL_TYPE_DISPLAY_ORDER %}
+                    {% if meal_type_name in day_plan and day_plan[meal_type_name] %}
+                        <div>
+                            <h4 class="font-semibold text-zinc-100 mb-2.5 text-xl text-center">{{ meal_type_name }}</h4>
+                            <ul class="text-zinc-300 space-y-1 text-base text-center">
+                                {% for item in day_plan[meal_type_name] %}
+                                    <li data-item-id="{{ item.id }}">
+                                        <span class="food-name">{{ item.food_name }}</span>
+                                        <span class="food-quantity text-xs text-zinc-500 ml-1 {% if item.quantity %}inline-block{% else %}hidden{% endif %}">
+                                            {% if item.quantity %}({{ item.quantity }}){% endif %}
+                                        </span>
+                                        <span class="food-calories text-xs text-zinc-400 ml-2 {% if item.calories is not none %}inline-block{% else %}hidden{% endif %}">
+                                            {% if item.calories is not none %}({{ item.calories }} kcal){% endif %}
+                                        </span>
+                                        {% if item.notes %}<p class="text-xs text-zinc-500 italic mt-0.5">{{ item.notes }}</p>{% endif %}
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {# Add hr if this is not the last meal type WITH items for this day #}
+                        {% if not loop.last %}
+                            {% set add_hr = false %}
+                            {% for i in range(loop.index, MEAL_TYPE_DISPLAY_ORDER|length) %}
+                                {% if MEAL_TYPE_DISPLAY_ORDER[i] in day_plan and day_plan[MEAL_TYPE_DISPLAY_ORDER[i]] %}
+                                    {% set add_hr = true %}
+                                    {# No break in Jinja, so this inner loop will complete, but add_hr is set #}
+                                {% endif %}
+                            {% endfor %}
+                            {% if add_hr %}
+                                <hr class="border-zinc-700/70 my-4">
+                            {% endif %}
+                        {% endif %}
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="mb-16 text-center text-zinc-400">
+        <p>No diet plan found for today ({{ current_day_name }}).</p>
+    </div>
+    {% endif %}
+
+    {# Title for Remaining Days #}
+    {% set upcoming_days_exist = false %}
+    {% for day_key in days_of_week_ordered %}
+        {% if day_key != current_day_name and day_key in diet_plan %}
+            {% set upcoming_days_exist = true %}
+            {# No break needed here, just setting a flag #}
+        {% endif %}
+    {% endfor %}
+
+    {% if upcoming_days_exist %}
+    <h2 class="text-3xl font-semibold text-zinc-200 mb-10 text-center pt-8 border-t border-zinc-700">Upcoming Days</h2>
+    {% endif %}
+
+    {# Grid for the Remaining Days #}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
+        {% for day_name_iter in days_of_week_ordered %}
+            {% if day_name_iter != current_day_name and day_name_iter in diet_plan %}
+            {% set day_plan = diet_plan[day_name_iter] %}
+            <div class="day-plan-card upcoming-day-card bg-gradient-to-br from-zinc-800 to-zinc-800/80 border border-zinc-700 rounded-2xl shadow-xl p-8 flex flex-col transition-all duration-300 ease-in-out hover:shadow-blue-600/30 hover:border-blue-500/80 hover:scale-[1.02] hover:-translate-y-1.5 backdrop-blur-sm" data-day-name="{{ day_name_iter }}">
+                <h3 class="text-3xl font-bold text-blue-400 mb-6 border-b-2 border-zinc-700 pb-4 text-center">{{ day_name_iter }}</h3>
+                <div class="space-y-6 flex-grow">
+                    {% for meal_type_name in MEAL_TYPE_DISPLAY_ORDER %}
+                        {% if meal_type_name in day_plan and day_plan[meal_type_name] %}
+                            <div>
+                                <h4 class="font-semibold text-zinc-100 mb-2.5 text-xl text-center">{{ meal_type_name }}</h4>
+                                <ul class="text-zinc-300 space-y-1 text-base text-center">
+                                    {% for item in day_plan[meal_type_name] %}
+                                        <li data-item-id="{{ item.id }}">
+                                            <span class="food-name">{{ item.food_name }}</span>
+                                            <span class="food-quantity text-xs text-zinc-500 ml-1 {% if item.quantity %}inline-block{% else %}hidden{% endif %}">
+                                                {% if item.quantity %}({{ item.quantity }}){% endif %}
+                                            </span>
+                                            <span class="food-calories text-xs text-zinc-400 ml-2 {% if item.calories is not none %}inline-block{% else %}hidden{% endif %}">
+                                                {% if item.calories is not none %}({{ item.calories }} kcal){% endif %}
+                                            </span>
+                                            {% if item.notes %}<p class="text-xs text-zinc-500 italic mt-0.5">{{ item.notes }}</p>{% endif %}
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            {# Add hr if this is not the last meal type WITH items for this day #}
+                            {% if not loop.last %}
+                                {% set add_hr_upcoming = false %}
+                                {% for i in range(loop.index, MEAL_TYPE_DISPLAY_ORDER|length) %}
+                                    {% if MEAL_TYPE_DISPLAY_ORDER[i] in day_plan and day_plan[MEAL_TYPE_DISPLAY_ORDER[i]] %}
+                                        {% set add_hr_upcoming = true %}
+                                    {% endif %}
+                                {% endfor %}
+                                {% if add_hr_upcoming %}
+                                    <hr class="border-zinc-700/70 my-4">
+                                {% endif %}
+                            {% endif %}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+
+    {# AI Diet Plan Generation Section #}
+    <div class="mt-20 mb-10 p-6 sm:p-8 bg-zinc-800/70 border border-zinc-700 rounded-xl shadow-xl max-w-2xl mx-auto backdrop-blur-sm">
+        <h3 class="text-2xl font-semibold text-blue-300 mb-6 text-center">✨ Create Your AI-Powered Diet Plan ✨</h3>
+        <form id="ai-diet-form" action="{{ url_for('create_diet_plan') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="mb-6">
+                <label for="describe_diet" class="block text-lg font-medium text-zinc-200 mb-2">
+                    Tell the AI about your diet:
+                </label>
+                <p class="text-sm text-zinc-400 mb-3">
+                    e.g., "High protein, 2000 calories, vegetarian, no shellfish" or "Low carb, focus on lean meats and vegetables."
+                </p>
+                <textarea id="describe_diet" name="describe_diet" rows="4"
+                          class="w-full bg-zinc-700 border-2 border-zinc-600 text-zinc-100 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 placeholder-zinc-500"
+                          placeholder="Describe your preferences, goals, and any restrictions..."></textarea>
+            </div>
+            <div class="text-center">
+                <button
+                    type="submit"
+                    id="generate-plan-button"
+                    class="group relative w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 text-lg font-semibold text-white bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg shadow-md hover:from-green-600 hover:to-emerald-700 focus:outline-none focus:ring-4 focus:ring-green-400 focus:ring-opacity-50 transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:from-green-500 disabled:hover:to-emerald-600">
+                    <svg id="button-icon" class="w-6 h-6 mr-2.5 transition-transform duration-300 group-hover:rotate-12" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L1.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.25 12L17 13.75M17 13.75L15.75 12M17 13.75L18.25 15M15.75 12L17 10.25" />
+                    </svg>
+                    <span id="button-text">Generate with AI</span>
+                    <svg id="loading-spinner" class="animate-spin ml-2.5 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </button>
+            </div>
+        </form>
+    </div>
+
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const currentDayCard = document.getElementById('current-day-card');
+    const aiDietForm = document.getElementById('ai-diet-form');
+    const generatePlanButton = document.getElementById('generate-plan-button');
+    const buttonText = document.getElementById('button-text');
+    const loadingSpinner = document.getElementById('loading-spinner');
+    const buttonIcon = document.getElementById('button-icon');
+
+    let currentlySelectedUpcomingCard = null;
+
+    // --- Helper Functions ---
+    function getCsrfToken() {
+        const token = document.querySelector('meta[name="csrf-token"]');
+        if (token) { return token.getAttribute('content'); }
+        const csrfInput = document.querySelector('input[name="csrf_token"]');
+        return csrfInput ? csrfInput.value : '';
+    }
+
+    function parseCalories(calorieString) {
+        if (!calorieString) return 0;
+        const match = calorieString.match(/(\d+)\s*kcal/i);
+        return match ? parseInt(match[1], 10) : 0;
+    }
+
+    function applyInitialStyles(liElement, isDone) {
+        if (isDone) {
+            liElement.classList.add('line-through', 'decoration-zinc-200', 'opacity-65', 'font-light');
+            liElement.classList.remove('text-blue-300');
+        } else {
+            liElement.classList.remove('line-through', 'decoration-zinc-200', 'opacity-65', 'font-light');
+        }
+    }
+
+    // --- Meal Item Handlers ---
+    function mealItemClickHandler(e) {
+        const parentCard = this.closest('.day-plan-card');
+        if (!parentCard) return;
+
+        // If this item is already in edit mode (form is open), do nothing on click.
+        if (this.classList.contains('editing') || this.querySelector('.edit-form-container')) {
+            return;
+        }
+
+        if (parentCard.id === 'current-day-card') {
+            // Strikethrough logic for current day
+            this.classList.toggle('line-through');
+            this.classList.toggle('decoration-zinc-200');
+            this.classList.toggle('opacity-65');
+            this.classList.toggle('font-light');
+            const isNowDone = this.classList.contains('line-through');
+            const foodNameSpan = this.querySelector('.food-name');
+            const calorieSpan = this.querySelector('.food-calories');
+            const foodName = foodNameSpan ? foodNameSpan.textContent.trim() : 'Unknown Food';
+            const caloriesText = calorieSpan ? calorieSpan.textContent : '(0 kcal)';
+            const calories = parseCalories(caloriesText);
+            if (isNowDone) this.classList.remove('text-blue-300');
+            let endpoint = isNowDone ? '/api/add_diet_food' : '/api/remove_diet_food';
+            let postData = isNowDone ? { food_name: foodName, calories: calories } : { food_name: foodName };
+            fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+                body: JSON.stringify(postData)
+            }).then(response => {
+                if (!response.ok) {
+                    // Revert UI changes on error
+                    this.classList.toggle('line-through');
+                    this.classList.toggle('decoration-zinc-200');
+                    this.classList.toggle('opacity-65');
+                    this.classList.toggle('font-light');
+                    if (this.classList.contains('line-through')) this.classList.remove('text-blue-300');
+                    else if (!this.classList.contains('editing')) this.classList.add('text-blue-300'); // Re-add hover if applicable
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            }).catch((error) => { console.error('Strikethrough Error:', error, 'Endpoint:', endpoint); });
+        } else if (parentCard.classList.contains('upcoming-day-card')) {
+            if (parentCard !== currentlySelectedUpcomingCard) {
+                // Case 1: Clicked item in an unselected card.
+                // Action: Select the card. Do not edit item yet.
+                if (currentlySelectedUpcomingCard) {
+                    currentlySelectedUpcomingCard.classList.remove('editing-active-card');
+                }
+                parentCard.classList.add('editing-active-card');
+                currentlySelectedUpcomingCard = parentCard;
+                e.stopPropagation(); // Prevent card's click handler from immediately deselecting.
+                return; // Done for this click.
+            } else {
+                // Case 2: Clicked item in an already selected card.
+                // Action: Make this item editable.
+                makeItemEditable(this);
+                // The card's click handler will see '.item-is-being-edited' and should not deselect.
+            }
+        }
+    }
+
+    function mealItemDblClickHandler() {
+        if (this.classList.contains('editing') || this.querySelector('.edit-form-container')) return;
+        const parentCard = this.closest('.day-plan-card');
+        // Allow double click to edit only for current day items for now, or selected upcoming.
+        if (parentCard && parentCard.id === 'current-day-card') {
+            makeItemEditable(this);
+        } else if (parentCard && parentCard.classList.contains('upcoming-day-card') && parentCard === currentlySelectedUpcomingCard) {
+            makeItemEditable(this);
+        }
+    }
+
+    function mealItemMouseEnterHandler() {
+        if (this.classList.contains('editing') || this.querySelector('.edit-form-container')) return;
+        if (!this.classList.contains('line-through') && this.tagName !== 'INPUT') {
+            const parentCard = this.closest('.day-plan-card');
+            if (parentCard) {
+                if (parentCard.id === 'current-day-card' ||
+                    (parentCard.classList.contains('upcoming-day-card') && parentCard === currentlySelectedUpcomingCard)) {
+                    this.classList.add('text-blue-300');
+                }
+            }
+        }
+    }
+
+    function mealItemMouseLeaveHandler() {
+        if (this.classList.contains('editing') || this.querySelector('.edit-form-container')) return;
+        if (this.tagName !== 'INPUT') {
+            this.classList.remove('text-blue-300');
+        }
+    }
+
+    function initializeMealItemInteractions(item) {
+        item.classList.add('cursor-pointer', 'transition-all', 'duration-150', 'ease-in-out', 'select-none');
+        // Remove old listeners to prevent duplicates if re-initializing
+        item.removeEventListener('click', mealItemClickHandler);
+        item.removeEventListener('dblclick', mealItemDblClickHandler);
+        item.removeEventListener('mouseenter', mealItemMouseEnterHandler);
+        item.removeEventListener('mouseleave', mealItemMouseLeaveHandler);
+        // Add new listeners
+        item.addEventListener('click', mealItemClickHandler);
+        item.addEventListener('dblclick', mealItemDblClickHandler);
+        item.addEventListener('mouseenter', mealItemMouseEnterHandler);
+        item.addEventListener('mouseleave', mealItemMouseLeaveHandler);
+    }
+
+    async function loadAndApplyInitialState() {
+        if (!currentDayCard) return;
+        try {
+            const response = await fetch('/api/get_diet_plan_item_statuses', {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() }
+            });
+            if (!response.ok) {
+                console.error('Failed to load initial diet state:', response.statusText);
+                return;
+            }
+            const data = await response.json();
+            const doneFoodsToday = data.done_foods || [];
+            const mealItemsInCurrentCard = currentDayCard.querySelectorAll('ul li');
+            mealItemsInCurrentCard.forEach(li => {
+                const foodNameSpan = li.querySelector('.food-name');
+                if (!foodNameSpan) return;
+                const foodName = foodNameSpan.textContent.trim();
+                applyInitialStyles(li, doneFoodsToday.includes(foodName));
+            });
+        } catch (error) {
+            console.error('Error loading initial diet state:', error);
+        }
+    }
+
+    function makeItemEditable(liElement) {
+        if (liElement.classList.contains('editing')) return;
+        liElement.classList.add('editing'); // Indicates edit mode is active for this item
+        liElement.classList.add('item-is-being-edited'); // Helper for card click listener
+
+        const parentCard = liElement.closest('.upcoming-day-card');
+        if (parentCard && currentlySelectedUpcomingCard !== parentCard) {
+            // This ensures the card containing the item to be edited is the selected one.
+            if (currentlySelectedUpcomingCard) {
+                currentlySelectedUpcomingCard.classList.remove('editing-active-card');
+            }
+            parentCard.classList.add('editing-active-card');
+            currentlySelectedUpcomingCard = parentCard;
+        }
+
+        const itemId = liElement.dataset.itemId;
+        const foodNameSpan = liElement.querySelector('.food-name');
+        const quantitySpan = liElement.querySelector('.food-quantity');
+        const calorieSpan = liElement.querySelector('.food-calories');
+        const originalContent = liElement.innerHTML; // Save to restore on cancel
+
+        liElement.innerHTML = ''; // Clear current content to replace with form
+
+        const formDiv = document.createElement('div');
+        formDiv.className = 'edit-form-container p-2 space-y-2 bg-zinc-700/80 rounded text-left backdrop-blur-xs';
+        // Prevent clicks inside the form from bubbling to the li's own click handler
+        formDiv.addEventListener('click', e => e.stopPropagation());
+
+
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text'; nameInput.value = foodNameSpan ? foodNameSpan.textContent : '';
+        nameInput.className = 'w-full bg-zinc-800 text-zinc-100 border border-blue-500 rounded px-2 py-1 text-sm focus:ring-1 focus:ring-blue-400 outline-none';
+        nameInput.placeholder = 'Food Name';
+
+        const quantityText = (quantitySpan && quantitySpan.textContent) ? ((quantitySpan.textContent.match(/\((.*)\)/) || [])[1] || '') : '';
+        const quantityInput = document.createElement('input');
+        quantityInput.type = 'text'; quantityInput.value = quantityText;
+        quantityInput.className = 'w-full bg-zinc-800 text-zinc-100 border border-blue-500 rounded px-2 py-1 text-sm focus:ring-1 focus:ring-blue-400 outline-none';
+        quantityInput.placeholder = 'Quantity (e.g., 1 cup)';
+
+        const caloriesValue = calorieSpan ? parseCalories(calorieSpan.textContent) : 0;
+        const calorieInput = document.createElement('input');
+        calorieInput.type = 'number'; calorieInput.value = caloriesValue; calorieInput.min = "0";
+        calorieInput.className = 'w-full bg-zinc-800 text-zinc-100 border border-blue-500 rounded px-2 py-1 text-sm focus:ring-1 focus:ring-blue-400 outline-none';
+        calorieInput.placeholder = 'Calories';
+
+        const saveButton = document.createElement('button');
+        saveButton.textContent = 'Save';
+        saveButton.className = 'bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs font-semibold';
+
+        const cancelButton = document.createElement('button');
+        cancelButton.textContent = 'Cancel';
+        cancelButton.className = 'bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs font-semibold ml-2';
+
+        formDiv.appendChild(nameInput);
+        formDiv.appendChild(quantityInput);
+        formDiv.appendChild(calorieInput);
+
+        const buttonDiv = document.createElement('div');
+        buttonDiv.className = 'flex justify-end mt-2';
+        buttonDiv.appendChild(saveButton);
+        buttonDiv.appendChild(cancelButton);
+        formDiv.appendChild(buttonDiv);
+
+        liElement.appendChild(formDiv);
+        nameInput.focus(); nameInput.select();
+
+        const restoreOriginalView = () => {
+            liElement.innerHTML = originalContent;
+            liElement.classList.remove('editing');
+            liElement.classList.remove('item-is-being-edited');
+            initializeMealItemInteractions(liElement); // Re-attach original listeners
+        };
+
+        saveButton.onclick = async (event) => {
+            event.stopPropagation(); // Prevent bubbling from save button
+            const newFoodName = nameInput.value.trim();
+            const newQuantity = quantityInput.value.trim();
+            const newCalories = calorieInput.value === '' ? null : parseInt(calorieInput.value, 10);
+
+            if (newFoodName === '') { alert('Food name cannot be empty.'); nameInput.focus(); return; }
+            if (newCalories !== null && (isNaN(newCalories) || newCalories < 0)) { alert('Please enter a valid non-negative number for calories, or leave it empty.'); calorieInput.focus(); return; }
+
+            try {
+                const response = await fetch('/api/update_diet_plan_item', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+                    body: JSON.stringify({ meal_item_id: itemId, food_name: newFoodName, quantity: newQuantity, calories: newCalories })
+                });
+                const result = await response.json();
+                if (response.ok && result.status === 'success') {
+                    const updatedItem = result.updated_item;
+                    liElement.innerHTML = originalContent; // Restore structure
+                    // Update content with new data
+                    const nameSpanRestored = liElement.querySelector('.food-name');
+                    const quantitySpanRestored = liElement.querySelector('.food-quantity');
+                    const calorieSpanRestored = liElement.querySelector('.food-calories');
+
+                    if (nameSpanRestored) nameSpanRestored.textContent = updatedItem.food_name;
+                    if (quantitySpanRestored) {
+                        if (updatedItem.quantity) {
+                            quantitySpanRestored.textContent = `(${updatedItem.quantity})`;
+                            quantitySpanRestored.classList.remove('hidden'); quantitySpanRestored.classList.add('inline-block');
+                        } else {
+                            quantitySpanRestored.textContent = '';
+                            quantitySpanRestored.classList.remove('inline-block'); quantitySpanRestored.classList.add('hidden');
+                        }
+                    }
+                    if (calorieSpanRestored) {
+                        if (updatedItem.calories !== null && updatedItem.calories !== undefined) {
+                            calorieSpanRestored.textContent = `(${updatedItem.calories} kcal)`;
+                            calorieSpanRestored.classList.remove('hidden'); calorieSpanRestored.classList.add('inline-block');
+                        } else {
+                            calorieSpanRestored.textContent = '';
+                            calorieSpanRestored.classList.remove('inline-block'); calorieSpanRestored.classList.add('hidden');
+                        }
+                    }
+                    liElement.classList.remove('editing');
+                    liElement.classList.remove('item-is-being-edited');
+                    initializeMealItemInteractions(liElement); // Re-attach original listeners
+                } else {
+                    alert(`Error: ${result.message || 'Failed to update item.'}`);
+                    restoreOriginalView(); // Restore on failure
+                }
+            } catch (error) {
+                console.error('Failed to save diet item:', error);
+                alert('An error occurred while saving. Please try again.');
+                restoreOriginalView(); // Restore on error
+            }
+        };
+
+        cancelButton.onclick = (event) => {
+            event.stopPropagation(); // Prevent bubbling from cancel button
+            restoreOriginalView();
+        };
+
+        [nameInput, quantityInput, calorieInput].forEach(input => {
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); saveButton.click(); }
+                else if (e.key === 'Escape') { cancelButton.click(); }
+            });
+        });
+    }
+
+    // --- AI Diet Plan Form Handling ---
+    if (aiDietForm && generatePlanButton && buttonText && loadingSpinner && buttonIcon) {
+        aiDietForm.addEventListener('submit', () => {
+            buttonIcon.classList.add('hidden');
+            loadingSpinner.classList.remove('hidden');
+            buttonText.textContent = 'Generating...';
+            generatePlanButton.disabled = true;
+        });
+    }
+
+    // --- Initialize interactions for ALL meal items on the page ---
+    const allMealItems = document.querySelectorAll('.day-plan-card ul li');
+    allMealItems.forEach(item => {
+        initializeMealItemInteractions(item);
+    });
+
+    // --- Setup Upcoming Day Card Click Listeners ---
+    const upcomingDayCards = document.querySelectorAll('.upcoming-day-card');
+    upcomingDayCards.forEach(card => {
+        card.addEventListener('click', function(event) { // `this` is the card
+
+            // Check if any list item *within this card* currently has the 'item-is-being-edited' class,
+            // or if the click is directly within an 'edit-form-container'.
+            const isEditingWithinThisCard = this.querySelector('li.item-is-being-edited');
+            const clickedInEditForm = event.target.closest('.edit-form-container');
+
+            if (isEditingWithinThisCard || clickedInEditForm) {
+                // If an item is being edited in this card, or the click was in the form,
+                // the card should remain selected. Do not toggle its state.
+                // Ensure it has the active class if it's the currently selected card.
+                if (this === currentlySelectedUpcomingCard && !this.classList.contains('editing-active-card')) {
+                    this.classList.add('editing-active-card');
+                }
+                return; // Stop further processing for this click on the card.
+            }
+
+            if (this === currentlySelectedUpcomingCard) {
+                // This card is currently selected, and the click wasn't related to an active edit. Deselect it.
+                this.classList.remove('editing-active-card');
+                currentlySelectedUpcomingCard = null;
+            } else {
+                // This card is not selected, or another card is. Select this one.
+                if (currentlySelectedUpcomingCard) {
+                    currentlySelectedUpcomingCard.classList.remove('editing-active-card');
+                }
+                this.classList.add('editing-active-card');
+                currentlySelectedUpcomingCard = this;
+            }
+        });
+    });
+
+    // If currentDayCard is clicked, deselect any active upcoming card
+    if (currentDayCard) {
+        currentDayCard.addEventListener('click', (event) => {
+            const clickedLi = event.target.closest('li');
+            // If click is inside an edit form or on an item being edited within the current day card
+            if ((clickedLi && clickedLi.classList.contains('item-is-being-edited')) || event.target.closest('.edit-form-container')) {
+                return; // Do nothing further for this click
+            }
+
+            if (currentlySelectedUpcomingCard) {
+                currentlySelectedUpcomingCard.classList.remove('editing-active-card');
+                currentlySelectedUpcomingCard = null;
+            }
+        });
+    }
+
+    // Load initial "done" state only for the current day card
+    if (currentDayCard) {
+        loadAndApplyInitialState();
+    }
+});
+</script>
+{% endblock %}
