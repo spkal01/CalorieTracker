@@ -691,7 +691,6 @@ def get_motivational_tip():
     return random.choice(quotes)
 
 def create_admin_user():
-    db.create_all()
     if not User.query.filter_by(username=config.ADMIN_USERNAME).first():
         hashed_password = bcrypt.generate_password_hash(config.ADMIN_PASSWORD).decode('utf-8')
         admin_user = User(
