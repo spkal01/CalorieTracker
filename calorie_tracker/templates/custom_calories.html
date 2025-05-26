@@ -3,6 +3,7 @@
 {% block content %}
 <div id="upload-container" class="bg-zinc-800 border border-zinc-700 p-6 rounded-lg shadow-sm {% if ai_result %}hidden{% endif %}">
     <form action="{{ url_for('custom_calories') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div>
             <label class="block text-sm font-medium text-zinc-300 mb-1">Upload Image</label>
             <input type="file" name="file" accept="image/*"

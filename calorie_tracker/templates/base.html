@@ -2,6 +2,7 @@
 <html lang="en" class="bg-zinc-900 text-zinc-100">
 <head>
     <meta charset="UTF-8">
+    <meta name="csrf-token" content="{{ csrf_token() }}"> {# Add this line #}
     <link rel="icon" href="{{ url_for('static', filename='images/favicon.png') }}" type="image/png">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Calorie Tracker</title>
@@ -142,7 +143,7 @@
     </script>
     <!-- Responsive Animated Navbar End -->
     <main class="flex-grow px-6 py-10">
-        <div id="content-container" class="max-w-3xl mx-auto fade-in">
+        <div id="content-container" class="{{ page_max_width | default('max-w-3xl') }} mx-auto fade-in">
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     <div class="mb-4 space-y-2">

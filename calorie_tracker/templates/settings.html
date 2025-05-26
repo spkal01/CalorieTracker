@@ -5,6 +5,7 @@
     <div class="w-full max-w-md bg-zinc-800 border border-zinc-700 rounded-lg shadow p-4 sm:p-6">
         <h2 class="text-xl sm:text-2xl font-bold text-zinc-100 mb-4 sm:mb-6 text-center">Settings</h2>
         <form method="POST" class="space-y-4">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div>
                 <label for="daily_calorie_goal" class="block text-zinc-300 mb-1 text-sm">Daily Calorie Goal (kcal)</label>
                 <input type="number" id="daily_calorie_goal" name="daily_calorie_goal" min="1"
@@ -62,6 +63,7 @@
         </form>
         <div class="mt-6 text-center">
             <form method="post" action="{{ url_for('settings') }}" id="ai-suggest-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" name="ai_suggest" value="1"
                     id="ai-suggest-btn"
                     class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"

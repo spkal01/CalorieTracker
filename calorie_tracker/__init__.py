@@ -10,10 +10,10 @@ from flask_admin import Admin
 from flask_migrate import Migrate
 from flask_dance.contrib.google import make_google_blueprint
 from werkzeug.middleware.proxy_fix import ProxyFix
+from flask_wtf.csrf import CSRFProtect
 
 # Create Flask app and trust proxy headers (Render)
 app = Flask(__name__)
-# Trust proxy headers for correct host and scheme behind Render load balancer
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 
 # Configure the database
@@ -26,10 +26,6 @@ if not os.path.exists(UPLOAD_FOLDER):
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 app.config['SECRET_KEY'] = config.SECRET_KEY
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-db = SQLAlchemy(app)
-login_manager = LoginManager(app)
-login_manager.init_app(app)
-bcrypt = Bcrypt(app)
 app.config['MAIL_SERVER'] = config.MAIL_SERVER
 app.config['MAIL_PORT'] = config.MAIL_PORT
 app.config['MAIL_USERNAME'] = config.MAIL_USERNAME
@@ -39,7 +35,6 @@ app.config['MAIL_USE_SSL'] = config.MAIL_USE_SSL
 app.config['MAIL_DEFAULT_SENDER'] = config.MAIL_DEFAULT_SENDER
 
 # Ensure secure cookies and proxy support for OAuth on production
-
 app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = "Lax"
 app.config['PREFERRED_URL_SCHEME'] = "https"
@@ -47,8 +42,15 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['REMEMBER_COOKIE_SECURE'] = True
 app.config['REMEMBER_COOKIE_SAMESITE'] = "Lax"
 
+# Initialize extensions
+db = SQLAlchemy(app)
+login_manager = LoginManager(app)
+login_manager.init_app(app)
+bcrypt = Bcrypt(app)
 mail = Mail(app)
 migrate = Migrate(app, db)
+csrf = CSRFProtect(app)  # Initialize CSRFProtect
+
 # Configure Google OAuth blueprint (uses /login/google and /login/google/authorized)
 google_bp = make_google_blueprint(
     client_id=config.GOOGLE_CLIENT_ID,
