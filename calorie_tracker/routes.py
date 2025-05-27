@@ -8,7 +8,7 @@ import json
 from datetime import datetime as dt
 import threading
 from flask import (
-    flash, render_template, request, redirect, url_for, session, jsonify
+    flash, render_template, request, redirect, url_for, session, jsonify, send_from_directory
 )
 from werkzeug.utils import secure_filename
 
@@ -48,8 +48,9 @@ def require_login():
     public_routes = [
         'login', 'signup', 'static', 'signup_verify', 'signup_email',
         'forgot_password', 'reset_password', 'landing',
-        'login_google', 'google.login', 'google.authorized'
-    ]  # Add other public endpoints if needed
+        'login_google', 'google.login', 'google.authorized',
+        'serve_sw', 'offline_page', "serve_assetlinks"
+    ]
     if not current_user.is_authenticated and request.endpoint not in public_routes:
         return redirect(url_for('landing'))
 
@@ -1181,3 +1182,20 @@ def diet_plan_generating_status_page(generation_token):
     return render_template('diet_plan_generating.html', 
                            generation_token=generation_token,
                            initial_status=initial_status)
+
+@app.route('/sw.js', methods=['GET'])
+def serve_sw():
+    return send_from_directory(app.root_path, 'sw.js', mimetype='application/javascript')
+
+@app.route('/offline')
+def offline_page():
+    return render_template('offline.html')
+
+@app.route('/.well-known/assetlinks.json')
+def serve_assetlinks():
+    static_folder_path = os.path.join(app.static_folder) # This usually points to 'd:\CalorieTracker\calorie_tracker\static'
+    well_known_path = os.path.join(static_folder_path, '.well-known')
+    
+    return send_from_directory(os.path.join(app.static_folder, '.well-known'),
+                               'assetlinks.json',
+                               mimetype='application/json')

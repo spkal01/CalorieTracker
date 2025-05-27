@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.spkal01.calorietracker",
+    "sha256_cert_fingerprints": [
+      "68:3F:02:2B:44:C5:19:90:13:AF:E5:3B:15:4F:F0:D4:89:2E:20:3B:FD:83:B8:4A:3F:78:E3:FF:2E:41:CB:7C"
+    ]
+  }
+}]

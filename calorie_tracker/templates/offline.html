@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline - Calorie Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}">
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #1a202c; /* bg-gray-900 */
+            color: #e2e8f0; /* text-gray-300 */
+            font-family: sans-serif;
+            text-align: center;
+        }
+        .container {
+            padding: 2rem;
+        }
+        h1 {
+            font-size: 2.25rem; /* text-4xl */
+            font-weight: bold;
+            margin-bottom: 1rem;
+        }
+        p {
+            font-size: 1.125rem; /* text-lg */
+            margin-bottom: 2rem;
+        }
+        a {
+            color: #63b3ed; /* text-blue-400 */
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Oops! You're Offline</h1>
+        <p>It seems you've lost your internet connection. Please check your network and try again.</p>
+        <p><a href="{{ url_for('landing') }}">Try to Reload</a></p>
+    </div>
+</body>
+</html>
