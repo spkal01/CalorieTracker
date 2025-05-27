@@ -1,0 +1,368 @@
+/* Mobile-specific enhancements for Calorie Tracker App
+ * This file contains all mobile-specific UI improvements
+ * while preserving the desktop experience
+ */
+
+/* Only apply these styles on mobile devices */
+@media (max-width: 768px) {
+  /* ===== Bottom Navigation Bar ===== */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    background-color: rgba(24, 24, 27, 0.95); /* zinc-900 with opacity */
+    backdrop-filter: blur(10px);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    border-top: 1px solid rgba(63, 63, 70, 0.5); /* zinc-700 with opacity */
+    z-index: 50;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    height: 100%;
+    color: #a1a1aa; /* zinc-400 */
+    transition: all 0.2s ease;
+    position: relative;
+  }
+
+  .bottom-nav-item.active {
+    color: #3b82f6; /* blue-500 */
+  }
+
+  .bottom-nav-item:active {
+    transform: scale(0.92);
+  }
+
+  .bottom-nav-icon {
+    width: 24px;
+    height: 24px;
+    margin-bottom: 4px;
+  }
+
+  .bottom-nav-label {
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  /* Add padding to main content to account for bottom nav */
+  main {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  }
+
+  /* ===== Simplified Header ===== */
+  .mobile-header {
+    height: 60px;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    background-color: rgba(24, 24, 27, 0.95); /* zinc-900 with opacity */
+    backdrop-filter: blur(10px);
+    z-index: 40;
+    border-bottom: 1px solid rgba(63, 63, 70, 0.5); /* zinc-700 with opacity */
+  }
+
+  .page-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: white;
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+  }
+
+  .header-action-button {
+    width: 40px;
+    height: 40px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: transparent;
+    color: white;
+    transition: all 0.2s ease;
+  }
+
+  .header-action-button:active {
+    background-color: rgba(63, 63, 70, 0.5); /* zinc-700 with opacity */
+    transform: scale(0.92);
+  }
+
+  /* ===== Enhanced Card Design ===== */
+  .mobile-card {
+    border-radius: 16px;
+    background-color: #27272a; /* zinc-800 */
+    border: 1px solid #3f3f46; /* zinc-700 */
+    padding: 16px;
+    margin-bottom: 16px;
+    transition: all 0.2s ease;
+  }
+
+  .mobile-card-interactive {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .mobile-card-interactive:active {
+    transform: scale(0.98);
+    background-color: #2d2d33; /* slightly lighter than zinc-800 */
+  }
+
+  .mobile-card-interactive::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: transparent;
+    pointer-events: none;
+    transition: background-color 0.3s ease;
+  }
+
+  .mobile-card-interactive:active::after {
+    background-color: rgba(59, 130, 246, 0.1); /* blue-500 with low opacity */
+  }
+
+  .mobile-card-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: white;
+  }
+
+  .mobile-card-subtitle {
+    font-size: 14px;
+    color: #a1a1aa; /* zinc-400 */
+    margin-bottom: 16px;
+  }
+
+  .mobile-card-content {
+    margin-bottom: 16px;
+  }
+
+  .mobile-card-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+
+  /* ===== Improved Button Design ===== */
+  .mobile-button {
+    height: 48px;
+    padding: 0 20px;
+    border-radius: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 16px;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .mobile-button-primary {
+    background-color: #3b82f6; /* blue-500 */
+    color: white;
+  }
+
+  .mobile-button-secondary {
+    background-color: #27272a; /* zinc-800 */
+    color: white;
+    border: 1px solid #3f3f46; /* zinc-700 */
+  }
+
+  .mobile-button:active {
+    transform: scale(0.96);
+  }
+
+  .mobile-button::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: transparent;
+    pointer-events: none;
+    transition: background-color 0.3s ease;
+  }
+
+  .mobile-button:active::after {
+    background-color: rgba(0, 0, 0, 0.2);
+  }
+
+  .mobile-button-icon {
+    margin-right: 8px;
+    width: 20px;
+    height: 20px;
+  }
+
+  .mobile-button-icon-only {
+    width: 48px;
+    padding: 0;
+  }
+
+  /* ===== Floating Action Button (FAB) ===== */
+  .mobile-fab {
+    position: fixed;
+    bottom: 80px; /* Above bottom navigation */
+    right: 20px;
+    width: 56px;
+    height: 56px;
+    border-radius: 28px;
+    background-color: #3b82f6; /* blue-500 */
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    transition: all 0.2s ease;
+    z-index: 30;
+  }
+
+  .mobile-fab:active {
+    transform: scale(0.92);
+    background-color: #2563eb; /* blue-600 */
+  }
+
+  .mobile-fab-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  /* ===== Enhanced List Item Design ===== */
+  .mobile-list-item {
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #3f3f46; /* zinc-700 */
+    transition: all 0.2s ease;
+  }
+
+  .mobile-list-item:active {
+    background-color: #3f3f46; /* zinc-700 */
+  }
+
+  .mobile-list-item-icon {
+    width: 24px;
+    height: 24px;
+    margin-right: 16px;
+    color: #a1a1aa; /* zinc-400 */
+  }
+
+  .mobile-list-item-content {
+    flex: 1;
+  }
+
+  .mobile-list-item-title {
+    font-size: 16px;
+    font-weight: 500;
+    color: white;
+    margin-bottom: 4px;
+  }
+
+  .mobile-list-item-subtitle {
+    font-size: 14px;
+    color: #a1a1aa; /* zinc-400 */
+  }
+
+  .mobile-list-item-action {
+    color: #a1a1aa; /* zinc-400 */
+  }
+
+  /* ===== Form Input Enhancements ===== */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  textarea,
+  select {
+    border-radius: 12px;
+    padding: 12px 16px;
+    background-color: #18181b; /* zinc-900 */
+    border: 1px solid #3f3f46; /* zinc-700 */
+    color: white;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    width: 100%;
+  }
+
+  input:focus,
+  textarea:focus,
+  select:focus {
+    border-color: #3b82f6; /* blue-500 */
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+    outline: none;
+  }
+
+  /* ===== Enhanced Touch Feedback ===== */
+  .touch-feedback {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .touch-feedback::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: transparent;
+    pointer-events: none;
+    transition: background-color 0.3s ease;
+  }
+
+  .touch-feedback:active::after {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+
+  /* ===== Loading Indicators ===== */
+  .mobile-loading {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    border-top-color: #3b82f6; /* blue-500 */
+    animation: mobile-spin 1s linear infinite;
+  }
+
+  @keyframes mobile-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* ===== Mobile-specific Layout Adjustments ===== */
+  .mobile-container {
+    padding: 16px;
+  }
+
+  .mobile-section {
+    margin-bottom: 24px;
+  }
+
+  .mobile-hidden {
+    display: none;
+  }
+
+  /* Adjust mobile menu to account for bottom nav */
+  #nav-menu {
+    padding-bottom: 64px;
+  }
+}

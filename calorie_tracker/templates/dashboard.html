@@ -1,7 +1,127 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="flex flex-col items-center justify-center min-h-[60vh] px-2">
+<!-- Mobile Header and Mobile Dashboard Content (unchanged) -->
+<div class="mobile-header md:hidden">
+  <div class="page-title">Dashboard</div>
+  <div class="header-actions">
+    <a href="{{ url_for('settings') }}" class="header-action-button">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"></circle>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+      </svg>
+    </a>
+  </div>
+</div>
+
+<!-- Mobile Dashboard Content -->
+<div class="md:hidden mobile-container space-y-4">
+  <!-- Welcome Card -->
+  <div class="mobile-card">
+    <div class="flex items-center mb-3">
+      <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mr-3 shadow-lg">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white">
+          <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+      </div>
+      <div>
+        <div class="mobile-card-title mb-1">Welcome back, <span class="text-blue-400 capitalize">{{ current_user.username }}!</span></div>
+        <div class="text-sm text-zinc-400">Ready to track your nutrition today?</div>
+      </div>
+    </div>
+    <div class="rounded-xl p-4 border-b-2" style="background-image: linear-gradient(to bottom right, #1e3a8a, #6b21a8);">
+      <p class="text-zinc-300 text-sm">Your central hub for calorie tracking, AI meal analysis, and achieving your health goals.</p>
+    </div>
+  </div>
+
+  <!-- Quick Actions Grid -->
+  <div class="grid grid-cols-2 gap-3">
+    <!-- Analyze Meal Card -->
+    <a href="{{ url_for('custom_calories') }}" class="mobile-card mobile-card-interactive p-4">
+      <div class="flex flex-col items-center text-center">
+        <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-3 shadow-lg" style="background: linear-gradient(135deg, #3b82f6, #06b6d4);">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-white">
+            <path d="m9 9 5 12 1.8-5.2L21 14Z"></path>
+            <path d="M7.2 2.2 8 5.1"></path>
+            <path d="m5.1 8-2.9-.8"></path>
+            <path d="M14 4.1 12 6"></path>
+            <path d="m6 12-1.9 2"></path>
+          </svg>
+        </div>
+        <div class="mobile-card-title text-sm mb-1">Analyze Meal</div>
+        <div class="text-xs text-zinc-400">AI-powered scan</div>
+      </div>
+    </a>
+
+    <!-- Saved Entries Card -->
+    <a href="{{ url_for('saved') }}" class="mobile-card mobile-card-interactive p-4">
+      <div class="flex flex-col items-center text-center">
+        <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-3 shadow-lg" style="background: linear-gradient(135deg, #10b981, #059669);">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-white">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+          </svg>
+        </div>
+        <div class="mobile-card-title text-sm mb-1">Saved</div>
+        <div class="text-xs text-zinc-400">View history</div>
+      </div>
+    </a>
+
+    <!-- Diet Overview Card -->
+    <a href="{{ url_for('diet') }}" class="mobile-card mobile-card-interactive p-4">
+      <div class="flex flex-col items-center text-center">
+        <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-3 shadow-lg" style="background: linear-gradient(135deg, #8b5cf6, #ec4899);">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-white">
+            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+          </svg>
+        </div>
+        <div class="mobile-card-title text-sm mb-1">Diet Plan</div>
+        <div class="text-xs text-zinc-400">Nutrition goals</div>
+      </div>
+    </a>
+
+    <!-- Settings Card -->
+    <a href="{{ url_for('settings') }}" class="mobile-card mobile-card-interactive p-4">
+      <div class="flex flex-col items-center text-center">
+        <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-3 shadow-lg" style="background: linear-gradient(135deg, #6b7280, #4b5563);">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-white">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </div>
+        <div class="mobile-card-title text-sm mb-1">Settings</div>
+        <div class="text-xs text-zinc-400">Preferences</div>
+      </div>
+    </a>
+  </div>
+
+  <!-- Quick Stats Card -->
+  <div class="mobile-card">
+    <div class="flex items-center justify-center mb-2">
+      <h3 class="mobile-card-title text-center">Today's Progress</h3>
+    </div>
+    <div class="grid grid-cols-3 divide-x divide-zinc-700">
+      <div class="text-center py-2 px-2">
+        <div class="text-xl font-bold text-blue-400">{{ calorie_goal | default('0') }}</div>
+        <div class="text-xs text-zinc-400">Goal</div>
+      </div>
+      <div class="text-center py-2 px-2">
+        <div class="text-xl font-bold text-green-400">{{ calories_eaten | default('0') }}</div>
+        <div class="text-xs text-zinc-400">Eaten</div>
+      </div>
+      <div class="text-center py-2 px-2">
+        <div class="text-xl font-bold text-purple-400">{{ calories_remaining | default('0') }}</div>
+        <div class="text-xs text-zinc-400">Remaining</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Desktop Dashboard -->
+<div class="hidden md:flex flex-col items-center justify-center min-h-[60vh] px-2">
     <div class="w-full max-w-2xl bg-zinc-800 border border-zinc-700 rounded-lg shadow p-8 flex flex-col items-center">
         <h2 class="text-3xl sm:text-4xl font-bold mb-4 text-center">
             Welcome, <span class="text-blue-500 capitalize">{{ current_user.username }}</span>

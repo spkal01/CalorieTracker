@@ -232,7 +232,9 @@ def index():
     if custom_calories and food_name:
         push_data(custom_calories, food_name=food_name)
         return redirect(url_for('saved'))
-    return render_template('dashboard.html', year=dt.now().year)
+    calorie_goal = current_user.daily_calorie_goal if current_user.daily_calorie_goal else 2000
+    calories_eaten = get_saved_data()[0]['total_calories'] if get_saved_data() else 0
+    return render_template('dashboard.html', year=dt.now().year, calorie_goal=calorie_goal, calories_eaten = calories_eaten, calories_remaining=(calorie_goal - calories_eaten))
 
 @app.route('/saved', methods=['GET', 'POST'])
 @login_required

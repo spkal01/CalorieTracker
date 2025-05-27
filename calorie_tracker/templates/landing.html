@@ -3,14 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <title>Calorie Tracker - Welcome</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/mobile.css') }}" rel="stylesheet">
     <link rel="icon" href="{{ url_for('static', filename='images/favicon.png') }}" type="image/png">
     <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
-    <meta name="theme-color" content="#2563eb">
+    <meta name="theme-color" content="#1f2937"> <!-- zinc-800 for a consistent base -->
+
     <!-- SEO Meta Tags -->
     <meta name="description" content="Track your calories, get AI-powered meal insights, and achieve your nutrition goals with Calorie Tracker. Modern, easy-to-use, and privacy-friendly.">
-    <meta name="keywords" content="calorie tracker, nutrition, meal analysis, AI, diet, health, food log, fitness, progress, web app, PWA">
+    <meta name="keywords" content="calorie tracker, nutrition, meal analysis, AI, diet, health, food log, fitness, progress, web app, PWA, mobile nutrition">
     <meta name="author" content="Spkal01">
     <!-- Open Graph / Facebook -->
     <meta property="og:title" content="Calorie Tracker - AI Powered Nutrition & Meal Log">
@@ -25,6 +27,11 @@
     <meta name="twitter:image" content="{{ url_for('static', filename='images/favicon.png', _external=True) }}">
     <!-- Canonical URL -->
     <link rel="canonical" href="{{ request.url_root }}landing">
+
+    <!-- Prevent Chrome Mobile from auto-inverting or recoloring your dark theme -->
+    <meta name="color-scheme" content="dark light">
+    <meta name="supported-color-schemes" content="dark light">
+
     <style>
         /* START: Rules to combat extension overrides */
         html.bg-zinc-900 {
@@ -34,171 +41,345 @@
             color: #f4f4f5 !important; /* Tailwind's zinc-100 */
         }
         body {
-            /* Ensure body background is transparent so HTML background shows through,
-               and it inherits the protected text color. */
             background-color: transparent !important;
             color: inherit !important;
+            overscroll-behavior-y: contain; /* Prevents pull-to-refresh on mobile */
         }
-
-        /* Protect the gradient text of the main H1 */
-        /* This targets the H1 with the specific classes for gradient text. */
         .landing-main-box > h1.text-transparent.bg-clip-text {
             color: transparent !important;
             -webkit-background-clip: text !important;
             background-clip: text !important;
-            /* Note: This primarily protects the transparency and clipping.
-               If an extension overrides the 'background-image' (the gradient itself),
-               that would be a separate, more complex issue to override back. */
         }
         /* END: Rules to combat extension overrides */
 
-        .landing-main-box {
+        /* Desktop Specific Styles */
+        .desktop-landing-main-box {
             margin-top: 3rem;
             margin-bottom: 3rem;
             position: relative;
             overflow: hidden;
         }
-        /* New Glass shine effect */
         .glass-shine::before {
             content: '';
             position: absolute;
             left: 0;
             top: 0;
-            width: 100%; /* Cover the parent */
+            width: 100%;
             height: 100%;
-            /* A focused shine gradient that sweeps across */
             background: linear-gradient(
                 100deg,
                 transparent 30%,
-                rgba(255, 255, 255, 0.35) 48%, /* Core of the shine */
+                rgba(255, 255, 255, 0.35) 48%,
                 rgba(255, 255, 255, 0.35) 52%,
                 transparent 70%
             );
-            filter: blur(4px); /* Softer edges for the shine */
-            transform: skewX(-20deg) translateX(-125%); /* Start off-screen */
+            filter: blur(4px);
+            transform: skewX(-20deg) translateX(-125%);
             animation: new-shine-sweep 5s ease-in-out infinite;
             pointer-events: none;
             z-index: 2;
             will-change: transform, opacity;
         }
-
         @keyframes new-shine-sweep {
-            0% {
-                transform: skewX(-20deg) translateX(-125%); /* Start fully to the left */
-                opacity: 0;
-            }
-            20% {
-                opacity: 0.6; /* Fade in as it enters view */
-            }
-            80% {
-                opacity: 0.6; /* Hold opacity as it crosses */
-            }
-            100% {
-                transform: skewX(-20deg) translateX(125%); /* End fully to the right */
-                opacity: 0; /* Fade out as it exits view */
-            }
+            0% { transform: skewX(-20deg) translateX(-125%); opacity: 0; }
+            20% { opacity: 0.6; }
+            80% { opacity: 0.6; }
+            100% { transform: skewX(-20deg) translateX(125%); opacity: 0; }
         }
 
-        /* On small screens, adjust for a slightly faster, snappier feel */
-        @media (max-width: 640px) {
-            .glass-shine::before {
-                height: 430px; /* Keep existing height rule for mobile */
-                animation-duration: 3.5s; /* Faster sweep on mobile */
-                filter: blur(4.5px); /* Slightly more pronounced blur on mobile */
-                background: linear-gradient(
-                    100deg,
-                    transparent 25%,
-                    rgba(255, 255, 255, 0.4) 48%, /* Slightly brighter shine on mobile */
-                    rgba(255, 255, 255, 0.4) 52%,
-                    transparent 75%
-                );
+        /* Mobile Specific Styles */
+        .mobile-hero-bg-gradient {
+            background-image: linear-gradient(160deg, #1f2937, #111827); /* zinc-800 to zinc-900 */
+        }
+        .mobile-btn-primary {
+            width: 100%;
+            padding-left: 1.5rem;
+            padding-right: 1.5rem;
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+            border-radius: 0.75rem;
+            color: #fff;
+            font-weight: 600;
+            font-size: 1.125rem;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .mobile-btn-primary:active {
+            transform: scale(0.95);
+            box-shadow: 0 4px 6px -4px rgba(0,0,0,0.1);
+        }
+        .mobile-feature-card {
+            background-color: rgba(39, 39, 42, 0.7); /* bg-zinc-800 with opacity-70 */
+            padding: 1.5rem; /* p-6 */
+            border-radius: 1rem; /* rounded-2xl */
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1); /* shadow-lg */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .mobile-feature-card:hover {
+            transform: scale(1.05);
+        }
+        .mobile-fade-in-up {
+            opacity: 0;
+            transform: translateY(20px);
+            animation: mobileFadeInUpAnimation 0.6s ease-out forwards;
+        }
+        @keyframes mobileFadeInUpAnimation {
+            to {
+                opacity: 1;
+                transform: translateY(0);
             }
         }
+        /* Staggered animations for mobile list items */
+        .mobile-fade-in-up:nth-child(1) { animation-delay: 0.1s; }
+        .mobile-fade-in-up:nth-child(2) { animation-delay: 0.2s; }
+        .mobile-fade-in-up:nth-child(3) { animation-delay: 0.3s; }
+        .mobile-fade-in-up:nth-child(4) { animation-delay: 0.4s; }
+        .mobile-fade-in-up:nth-child(5) { animation-delay: 0.5s; }
+        .mobile-fade-in-up:nth-child(6) { animation-delay: 0.6s; } /* For footer */
+
+
+        /* Adjust glass shine for desktop on smaller "medium" screens if needed */
+        @media (max-width: 768px) and (min-width: 641px) { /* Between sm and md */
+             .glass-shine::before {
+                /* Potentially less aggressive shine for smaller desktop views */
+             }
+        }
+        /* On small screens (mobile), glass-shine is part of the desktop view, so it will be hidden.
+           If you intended a different shine for mobile, it would need separate classes.
+           The existing @media (max-width: 640px) for .glass-shine::before is now redundant
+           if .glass-shine is only on the desktop version.
+        */
     </style>
 </head>
 <body class="min-h-screen flex flex-col font-sans antialiased">
-    <main class="flex-grow flex items-center justify-center">
-        <div class="landing-main-box w-full max-w-2xl mx-auto px-6 py-16 flex flex-col items-center bg-gradient-to-br from-zinc-800/90 via-zinc-900/90 to-blue-900/80 rounded-3xl shadow-2xl border border-zinc-700 glass-shine">
-            <h1 class="text-5xl sm:text-6xl font-extrabold text-center mb-4 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-green-400 to-blue-600 drop-shadow-lg">
-                Calorie Tracker
-            </h1>
-            <p class="text-xl sm:text-2xl text-zinc-300 text-center mb-10 max-w-2xl font-medium">
-                Track your calories, get AI-powered meal insights, and achieve your nutrition goals with a beautiful, modern interface.
-            </p>
-            <div class="flex flex-col sm:flex-row gap-4 mb-12 w-full justify-center">
-                <a href="{{ url_for('login') }}"
-                   class="flex-1 px-8 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-lg shadow-lg hover:shadow-xl hover:-translate-y-1 transition text-center">
-                    Log In
-                </a>
+
+    <!-- Desktop Landing Page Content -->
+    <div class="hidden md:flex flex-col flex-grow w-full">
+        <main class="flex-grow flex items-center justify-center">
+            <div class="desktop-landing-main-box w-full max-w-2xl mx-auto px-6 py-16 flex flex-col items-center bg-gradient-to-br from-zinc-800/90 via-zinc-900/90 to-blue-900/80 rounded-3xl shadow-2xl border border-zinc-700 glass-shine">
+                <h1 class="text-5xl sm:text-6xl font-extrabold text-center mb-4 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-green-400 to-blue-600 drop-shadow-lg">
+                    Calorie Tracker
+                </h1>
+                <p class="text-xl sm:text-2xl text-zinc-300 text-center mb-10 max-w-2xl font-medium">
+                    Track your calories, get AI-powered meal insights, and achieve your nutrition goals with a beautiful, modern interface.
+                </p>
+                <div class="flex flex-col sm:flex-row gap-4 mb-12 w-full justify-center">
+                    <a href="{{ url_for('login') }}"
+                       class="flex-1 px-8 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-lg shadow-lg hover:shadow-xl hover:-translate-y-1 transition text-center">
+                        Log In
+                    </a>
+                    <a href="{{ url_for('signup') }}"
+                       class="flex-1 px-8 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold text-lg shadow-lg hover:shadow-xl hover:-translate-y-1 transition text-center">
+                        Sign Up
+                    </a>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-8 mt-2 w-full">
+                    <div class="group bg-zinc-900/90 rounded-2xl p-7 border border-zinc-700 flex flex-col items-center shadow-lg hover:scale-105 transition">
+                        <span class="inline-block mb-3 text-3xl group-hover:scale-110 group-hover:rotate-[-3deg] transition-transform duration-200 ease-out">🤖</span>
+                        <span class="font-semibold text-zinc-100 mb-1 text-lg">AI Meal Analysis</span>
+                        <span class="text-zinc-400 text-base text-center">Get instant feedback and nutrition tips powered by AI.</span>
+                    </div>
+                    <div class="group bg-zinc-900/90 rounded-2xl p-7 border border-zinc-700 flex flex-col items-center shadow-lg hover:scale-105 transition">
+                        <span class="inline-block mb-3 text-3xl group-hover:scale-110 group-hover:rotate-[3deg] transition-transform duration-200 ease-out">📊</span>
+                        <span class="font-semibold text-zinc-100 mb-1 text-lg">Track & Visualize</span>
+                        <span class="text-zinc-400 text-base text-center">Log your meals, set goals, and visualize your progress.</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+        <footer class="text-center py-6 text-zinc-500 text-sm">
+            &copy; {{ year|default(2025) }} Calorie Tracker &mdash; Eat smart, live better.
+        </footer>
+    </div>
+
+    <!-- Mobile Landing Page Content -->
+    <div class="md:hidden flex flex-col flex-grow w-full">
+        <main class="flex-grow flex flex-col">
+            <!-- Hero Section -->
+            <section class="mobile-hero-bg-gradient pt-16 pb-12 px-6 text-center mobile-fade-in-up">
+                <img src="{{ url_for('static', filename='images/favicon.png') }}" alt="Calorie Tracker Logo" class="w-20 h-20 mx-auto mb-6 rounded-2xl shadow-md">
+                <h1 class="text-4xl font-extrabold mb-3 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-green-400 to-teal-400">
+                    Calorie Tracker
+                </h1>
+                <p class="text-lg text-zinc-300 mb-8 max-w-md mx-auto">
+                    Your smart companion for effortless calorie tracking and AI-powered meal insights.
+                </p>
+            </section>
+
+            <!-- Call to Action Buttons -->
+            <section class="px-6 py-8 space-y-4 mobile-fade-in-up">
                 <a href="{{ url_for('signup') }}"
-                   class="flex-1 px-8 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold text-lg shadow-lg hover:shadow-xl hover:-translate-y-1 transition text-center">
-                    Sign Up
+                   class="mobile-btn-primary bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 block text-center">
+                    Get Started - Sign Up
                 </a>
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-8 mt-2 w-full">
-                <div class="group bg-zinc-900/90 rounded-2xl p-7 border border-zinc-700 flex flex-col items-center shadow-lg hover:scale-105 transition">
-                    <span class="inline-block mb-3 text-3xl group-hover:scale-110 group-hover:rotate-[-3deg] transition-transform duration-200 ease-out">🤖</span>
-                    <span class="font-semibold text-zinc-100 mb-1 text-lg">AI Meal Analysis</span>
-                    <span class="text-zinc-400 text-base text-center">Get instant feedback and nutrition tips powered by AI.</span>
+                <a href="{{ url_for('login') }}"
+                   class="mobile-btn-primary bg-green-600 hover:bg-green-600 text-center block">
+                    Already have an account? Log In
+                </a>
+            </section>
+
+            <!-- Key Features Section - Revamped -->
+            <section class="px-6 py-12 flex-grow">
+                <div class="text-center mb-10 mobile-fade-in-up">
+                    <h2 class="text-3xl font-bold text-white mb-3">Everything You Need</h2>
+                    <p class="text-zinc-400 text-base max-w-xs mx-auto">Simple tools to transform your nutrition journey</p>
                 </div>
-                <div class="group bg-zinc-900/90 rounded-2xl p-7 border border-zinc-700 flex flex-col items-center shadow-lg hover:scale-105 transition">
-                    <span class="inline-block mb-3 text-3xl group-hover:scale-110 group-hover:rotate-[3deg] transition-transform duration-200 ease-out">📊</span>
-                    <span class="font-semibold text-zinc-100 mb-1 text-lg">Track & Visualize</span>
-                    <span class="text-zinc-400 text-base text-center">Log your meals, set goals, and visualize your progress.</span>
+                
+                <!-- Feature Grid -->
+                <div class="space-y-5">
+                    <!-- AI Analysis Feature -->
+                    <div class="mobile-feature-card mobile-fade-in-up bg-gradient-to-r from-blue-600/10 to-cyan-600/10 border border-blue-500/20 hover:border-blue-400/40">
+                        <div class="flex items-center space-x-4 w-full">
+                            <div class="flex-shrink-0 p-3 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl shadow-lg">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-white">
+                                    <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                                </svg>
+                            </div>
+                            <div class="flex-1 text-left">
+                                <h3 class="text-lg font-semibold text-white mb-2">Smart AI Analysis</h3>
+                                <p class="text-zinc-400 text-sm leading-relaxed">Just snap a photo of your meal and get instant nutrition breakdown with calorie estimates and macro insights.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Progress Tracking Feature -->
+                    <div class="mobile-feature-card mobile-fade-in-up bg-gradient-to-r from-emerald-600/10 to-green-600/10 border border-emerald-500/20 hover:border-emerald-400/40">
+                        <div class="flex items-center space-x-4 w-full">
+                            <div class="flex-shrink-0 p-3 bg-gradient-to-br from-emerald-500 to-green-500 rounded-2xl shadow-lg">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-white">
+                                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                                </svg>
+                            </div>
+                            <div class="flex-1 text-left">
+                                <h3 class="text-lg font-semibold text-white mb-2">Progress Tracking</h3>
+                                <p class="text-zinc-400 text-sm leading-relaxed">Monitor your daily intake, set personalized goals, and watch your progress unfold with beautiful visual charts.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Easy Logging Feature -->
+                    <div class="mobile-feature-card mobile-fade-in-up bg-gradient-to-r from-purple-600/10 to-pink-600/10 border border-purple-500/20 hover:border-purple-400/40">
+                        <div class="flex items-center space-x-4 w-full">
+                            <div class="flex-shrink-0 p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl shadow-lg">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-white">
+                                    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                                    <polyline points="14,2 14,8 20,8"/>
+                                    <path d="M12 18v-6"/>
+                                    <path d="M9 15h6"/>
+                                </svg>
+                            </div>
+                            <div class="flex-1 text-left">
+                                <h3 class="text-lg font-semibold text-white mb-2">Effortless Logging</h3>
+                                <p class="text-zinc-400 text-sm leading-relaxed">Quick meal entries, saved favorites, and seamless integration make tracking your nutrition feel natural.</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        </div>
-    </main>
-    <footer class="text-center py-6 text-zinc-500 text-sm">
-        &copy; {{ year|default(2025) }} Calorie Tracker &mdash; Eat smart, live better.
-    </footer>
+
+                <!-- Trust Indicators -->
+                <div class="mt-12 mobile-fade-in-up">
+                    <div class="bg-zinc-800/40 rounded-2xl p-6 border border-zinc-700/50">
+                        <div class="flex items-center justify-center space-x-8">
+                            <div class="text-center">
+                                <div class="text-2xl font-bold text-blue-400">AI</div>
+                                <div class="text-xs text-zinc-500">Powered</div>
+                            </div>
+                            <div class="w-px h-8 bg-zinc-700"></div>
+                            <div class="text-center">
+                                <div class="text-2xl font-bold text-green-400">Free</div>
+                                <div class="text-xs text-zinc-500">to Start</div>
+                            </div>
+                            <div class="w-px h-8 bg-zinc-700"></div>
+                            <div class="text-center">
+                                <div class="text-2xl font-bold text-purple-400">PWA</div>
+                                <div class="text-xs text-zinc-500">App Ready</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+        <footer class="text-center py-8 text-zinc-500 text-xs border-t border-zinc-800 mobile-fade-in-up">
+            &copy; {{ year|default(2025) }} Calorie Tracker &mdash; Eat smart, live better.
+        </footer>
+    </div>
+
+    <!-- PWA Installation Prompt Script (Common for both views) -->
     <script>
-let deferredPrompt;
+        let deferredPrompt;
 
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-  // Show a notification/toast instead of a button
-  showInstallNotification();
-});
+        window.addEventListener('beforeinstallprompt', (e) => {
+          e.preventDefault();
+          deferredPrompt = e;
+          showInstallNotification();
+        });
 
-function showInstallNotification() {
-  // Remove any existing notification
-  document.getElementById('pwa-install-notification')?.remove();
+        function showInstallNotification() {
+          document.getElementById('pwa-install-notification')?.remove();
 
-  // Create notification element
-  const notification = document.createElement('div');
-  notification.id = 'pwa-install-notification';
-  notification.className = 'fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-blue-700 text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-4 z-50';
-  notification.innerHTML = `
-    <span>Install Calorie Tracker for a better experience!</span>
-    <button id="pwa-install-action" class="ml-4 px-3 py-1 rounded bg-blue-400 hover:bg-blue-500 text-white font-semibold transition">Install</button>
-    <button id="pwa-install-dismiss" class="ml-2 px-2 py-1 rounded bg-zinc-700 hover:bg-zinc-800 text-zinc-200 transition">&times;</button>
-  `;
-  document.body.appendChild(notification);
+          const notification = document.createElement('div');
+          notification.id = 'pwa-install-notification';
+          // Adjusted classes for better visibility and consistency
+          notification.className = 'fixed bottom-4 left-1/2 transform -translate-x-1/2 w-11/12 max-w-md bg-blue-600 text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-3 z-50 text-sm sm:bottom-6 sm:px-5';
+          notification.innerHTML = `
+            <img src="{{ url_for('static', filename='images/favicon.png') }}" alt="App Icon" class="w-6 h-6 rounded-md flex-shrink-0">
+            <span class="flex-grow">Install Calorie Tracker for quick access!</span>
+            <button id="pwa-install-action" class="ml-auto px-3 py-1 rounded-md bg-blue-400 hover:bg-blue-500 text-white font-semibold transition text-xs flex-shrink-0">Install</button>
+            <button id="pwa-install-dismiss" class="ml-1 p-1 rounded-md hover:bg-blue-700 text-blue-200 transition flex-shrink-0">&times;</button>
+          `;
+          document.body.appendChild(notification);
 
-  // Install action
-  document.getElementById('pwa-install-action').onclick = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        notification.remove();
-      }
-      deferredPrompt = null;
-    }
-  };
+          document.getElementById('pwa-install-action').onclick = async () => {
+            if (deferredPrompt) {
+              deferredPrompt.prompt();
+              const { outcome } = await deferredPrompt.userChoice;
+              if (outcome === 'accepted') {
+                notification.remove();
+              }
+              deferredPrompt = null;
+            }
+          };
 
-  // Dismiss action
-  document.getElementById('pwa-install-dismiss').onclick = () => {
-    notification.remove();
-  };
-}
+          document.getElementById('pwa-install-dismiss').onclick = () => {
+            notification.remove();
+          };
+        }
 
-// Register the service worker for PWA functionality
-  if (typeof navigator.serviceWorker !== 'undefined') {
-    navigator.serviceWorker.register('{{ url_for("serve_sw") }}');
-}
-</script>
+        if (typeof navigator.serviceWorker !== 'undefined') {
+            navigator.serviceWorker.register('{{ url_for("serve_sw") }}');
+        }
+
+        // Mobile specific animations (fade-in-up)
+        // This observer is for the mobile view elements
+        const mobileObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    // Check if the element is part of the mobile view before adding class
+                    if (entry.target.closest('.md\\:hidden')) {
+                        entry.target.classList.add('visible'); // 'visible' class can trigger CSS opacity/transform
+                    }
+                    // We could unobserve, but for simple fade-ins, it's often fine to leave it
+                    // mobileObserver.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.mobile-fade-in-up').forEach(el => {
+            // Ensure we only observe elements that are actually part of the mobile structure
+            if (el.closest('.md\\:hidden')) {
+                 mobileObserver.observe(el);
+            }
+        });
+        // Note: The 'visible' class for the mobile fade-in needs to be defined in CSS if not already.
+        // For example: .mobile-fade-in-up.visible { opacity: 1; transform: translateY(0); }
+        // The keyframes `mobileFadeInUpAnimation` already handle this, so adding 'visible' might be redundant
+        // if the animation itself is the trigger. The current setup uses animation directly.
+    </script>
+    <!-- You can link to static/js/mobile.js if it has general mobile enhancements -->
+    <!-- <script src="{{ url_for('static', filename='js/mobile.js') }}"></script> -->
 </body>
 </html>

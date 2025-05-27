@@ -4,11 +4,13 @@
     <meta charset="UTF-8">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="icon" href="{{ url_for('static', filename='images/favicon.png') }}" type="image/png">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Calorie Tracker</title>
     <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/mobile.css') }}" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="{{ url_for('static', filename='js/reset.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/mobile.js') }}"></script>
 </head>
 <style>
 .fade-in {
@@ -21,24 +23,80 @@
   transform: none;
 }
 
-/* Enhanced mobile-only touch interactions */
+/* Bottom Navigation Fixes */
+#mobile-nav-container {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 99999 !important;
+    height: calc(4rem + env(safe-area-inset-bottom, 0px)) !important;
+    /* Clean isolation properties */
+    isolation: isolate !important;
+    transform: translateZ(0) !important;
+    /* ADDED: Force the navbar to stay in place regardless of content */
+    contain: layout style paint !important;
+    will-change: auto !important;
+}
+
+/* Ensure navigation links work normally */
+#mobile-nav-container nav a {
+    pointer-events: auto !important;
+    min-height: 44px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    /* ADDED: Prevent any layout shifts */
+    contain: layout !important;
+}
+
+/* ADDED: Override any mobile.css that might be interfering */
 @media (max-width: 768px) {
-  .touch-feedback {
-      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-      -webkit-tap-highlight-color: transparent;
+  /* Force override bottom nav positioning from mobile.css */
+  .bottom-nav,
+  #mobile-nav-container {
+    position: fixed !important;
+    bottom: 0 !important;
+    z-index: 99999 !important;
+    transform: none !important;
+    transition: none !important;
   }
 
+  /* Prevent any content from pushing navbar around */
+  #mobile-nav-container * {
+    position: relative !important;
+  }
+
+  /* Body padding for navbar */
+  body {
+      padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px)) !important;
+      /* ADDED: Prevent content from affecting navbar */
+      contain: layout !important;
+  }
+
+  /* ADDED: Prevent dashboard content from interfering */
+  .mobile-container,
+  .mobile-card,
+  .mobile-card-interactive {
+    position: relative !important;
+    z-index: 1 !important;
+  }
+
+  /* Simple active state for navbar links */
+  #mobile-nav-container nav a:active {
+      background-color: rgba(59, 130, 246, 0.1) !important;
+      border-radius: 12px !important;
+      /* ADDED: Ensure active state doesn't cause layout issues */
+      transform: none !important;
+  }
+
+  /* Regular touch feedback for other elements */
   .touch-feedback:active {
       transform: scale(0.96);
       opacity: 0.85;
   }
 
-  /* Button press animations - mobile only */
-  button, .btn, a[role="button"], input[type="submit"] {
-      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-      -webkit-tap-highlight-color: transparent;
-  }
-
+  /* Button press animations */
   button:active, .btn:active, a[role="button"]:active, input[type="submit"]:active {
       transform: scale(0.96);
       filter: brightness(0.9);
@@ -133,13 +191,13 @@ html {
 </style>
 <body class="min-h-screen flex flex-col font-sans antialiased">
     {% if current_user.is_authenticated %}
-    <!-- Responsive Animated Navbar Start -->
-    <nav class="bg-zinc-900 border-b border-zinc-800">
+    <!-- Responsive Animated Navbar Start (Desktop Only) -->
+    <nav class="bg-zinc-900 border-b border-zinc-800 hidden md:block">
         <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
             <div class="flex items-center gap-4">
                 <a href="{{ url_for('index') }}" class="text-2xl font-bold text-white hover:text-blue-400 transition whitespace-nowrap">Calorie Tracker</a>
             </div>
-            <div class="hidden md:flex gap-8 items-center">
+            <div class="flex gap-8 items-center">
                 <a href="{{ url_for('index') }}" class="text-white hover:text-blue-400 transition text-lg">Dashboard</a>
                 <a href="{{ url_for('custom_calories') }}" class="text-zinc-300 hover:text-blue-400 transition text-lg">Custom Calorie Analyzer</a>
                 <a href="{{ url_for('saved')}}" class="text-zinc-300 hover:text-blue-400 transition text-lg">Saved</a>
@@ -162,46 +220,17 @@ html {
                     </div>
                 </div>
             </div>
-            <button id="nav-toggle" class="md:hidden flex flex-col gap-1 w-8 h-8 justify-center items-center focus:outline-none group" aria-label="Toggle navigation">
-                <span class="w-6 h-0.5 bg-white rounded transition-transform duration-300 group-[.open]:rotate-45 group-[.open]:translate-y-1.5"></span>
-                <span class="w-6 h-0.5 bg-white rounded transition-all duration-300 group-[.open]:opacity-0"></span>
-                <span class="w-6 h-0.5 bg-white rounded transition-transform duration-300 group-[.open]:-rotate-45 group-[.open]:-translate-y-1.5"></span>
-            </button>
-        </div>
-        <div id="nav-menu" class="md:hidden overflow-hidden max-h-0 transition-[max-height] duration-500 ease-in-out bg-zinc-900 px-4">
-            <div class="flex flex-col gap-4 py-4">
-                <a href="{{ url_for('index') }}" class="text-white hover:text-blue-400 transition text-lg">Dashboard</a>
-                <a href="{{ url_for('custom_calories') }}" class="text-zinc-300 hover:text-blue-400 transition text-lg">Custom Calorie Analyzer</a>
-                <a href="{{ url_for('saved')}}" class="text-zinc-300 hover:text-blue-400 transition text-lg">Saved</a>
-                <a href="{{ url_for('diet') }}" class="text-zinc-300 hover:text-blue-400 transition text-lg">Diet</a>
-                <div class="border-t border-zinc-700 pt-2">
-                    <a href="{{ url_for('settings')}}" class="block py-2 text-white hover:text-blue-400 transition text-lg">Settings</a>
-                    <a href="{{ url_for('profile')}}" class="block py-2 text-white hover:text-blue-400 transition text-lg">Profile</a>
-                    {% if current_user.is_admin %}
-                    <a href="{{ url_for('admin.index')}}" class="block py-2 text-white hover:text-blue-400 transition text-lg">Admin Dashboard</a>
-                    {% endif %}
-                    <a href="{{ url_for('logout')}}" class="block py-2 text-white hover:text-blue-400 transition text-lg">Logout</a>
-                </div>
-            </div>
         </div>
     </nav>
+    <!-- Responsive Animated Navbar End -->
     {% endif %}
     <script>
       document.addEventListener('DOMContentLoaded', function () {
-        const toggle = document.getElementById('nav-toggle');
-        const menu = document.getElementById('nav-menu');
-        if (toggle && menu) {
-          toggle.addEventListener('click', () => {
-            toggle.classList.toggle('open');
-            if (menu.style.maxHeight && menu.style.maxHeight !== '0px') {
-              menu.style.maxHeight = '0px';
-            } else {
-              menu.style.maxHeight = menu.scrollHeight + 'px';
-            }
-          });
-        }
+        // const toggle = document.getElementById('nav-toggle'); // No longer needed for top nav on mobile
+        // const menu = document.getElementById('nav-menu'); // No longer needed for top nav on mobile
+        // if (toggle && menu) { ... } // This block can be removed or adapted if other toggles use it
 
-        // Dropdown click toggle with animation
+        // Dropdown click toggle with animation (for desktop nav)
         const dropdownToggle = document.getElementById('dropdown-toggle');
         const dropdownMenu = document.getElementById('dropdown-menu');
         const dropdownArrow = document.getElementById('dropdown-arrow');
@@ -318,6 +347,15 @@ html {
         addHapticFeedback();
         addFormFeedback();
 
+        // Simple navbar isolation - REPLACE the aggressive code with this:
+        const mobileNavContainer = document.getElementById('mobile-nav-container');
+        if (mobileNavContainer && isMobileDevice()) {
+            // Only prevent scrolling on the navbar container itself
+            mobileNavContainer.addEventListener('touchmove', function(event) {
+                event.preventDefault();
+            }, { passive: false });
+        }
+
         // Re-apply to dynamically added content (mobile only)
         const observer = new MutationObserver(() => {
             if (isMobileDevice()) {
@@ -356,7 +394,7 @@ html {
                                 {% elif category == 'warning' %}
                                     bg-yellow-800/50 border-yellow-500 text-yellow-200
                                 {% else %}
-                                    bg-zinc-800 border-zinc-700 text-zinc-200
+                                    bg-blue-800/50 border-blue-500 text-blue-200
                                 {% endif %}
                             ">
                                 {{ message }}
@@ -365,11 +403,21 @@ html {
                     </div>
                 {% endif %}
             {% endwith %}
+            
             {% block content %}{% endblock %}
         </div>
     </main>
-    <footer class="text-center text-xs text-zinc-500 py-6 border-t border-zinc-800">
+    
+
+    <footer class="text-center text-xs text-zinc-500 py-6 border-t border-zinc-800 {% if current_user.is_authenticated %}pb-[calc(60px+env(safe-area-inset-bottom,0px))] md:pb-6{% endif %}">
         &copy; {{ year }} Calorie Tracker
     </footer>
+    {% if current_user.is_authenticated %}
+    <!-- Bottom Navigation Container - Mobile Only -->
+    <div id="mobile-nav-container" class="md:hidden fixed bottom-0 left-0 right-0 z-[99999] bg-zinc-900 border-t border-zinc-800">
+        {% include 'bottom_nav.html' %}
+    </div>
+    {% endif %}
+
 </body>
 </html>

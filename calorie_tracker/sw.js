@@ -1,10 +1,11 @@
-const CACHE_NAME = 'calorie-tracker-v2';
+const CACHE_NAME = 'calorie-tracker-v5';
 const OFFLINE_URL = '/offline';
 
 const ASSETS_TO_CACHE = [
   '/',
   '/landing',
   '/static/css/output.css',
+  '/static/css/mobile.css',
   '/static/images/favicon.png',
   '/static/manifest.json', 
   '/sw.js',
