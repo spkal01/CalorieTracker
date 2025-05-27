@@ -50,5 +50,9 @@
     "fitness",
     "health",
     "lifestyle"
-  ]
+  ],
+  "dir": "ltr",
+  "lang": "en-US",
+  "orientation": "portrait",
+  "prefer_related_applications": false
 }
