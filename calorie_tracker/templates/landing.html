@@ -195,7 +195,7 @@ function showInstallNotification() {
   };
 }
 
-// Register service worker
+// Register the service worker for PWA functionality
   if (typeof navigator.serviceWorker !== 'undefined') {
     navigator.serviceWorker.register('{{ url_for("serve_sw") }}');
 }

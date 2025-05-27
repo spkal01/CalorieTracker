@@ -1,12 +1,17 @@
-const CACHE_NAME = 'calorie-tracker-v1'; // Increment cache version
+const CACHE_NAME = 'calorie-tracker-v2';
 const OFFLINE_URL = '/offline';
 
 const ASSETS_TO_CACHE = [
   '/',
+  '/landing',
   '/static/css/output.css',
   '/static/images/favicon.png',
-  '/landing',
-  OFFLINE_URL // Add the offline page to assets to cache
+  '/static/manifest.json', 
+  '/sw.js',
+  OFFLINE_URL,
+  '/dashboard',
+  '/diet',
+  '/saved'
 ];
 
 // Install event: cache files
@@ -43,27 +48,51 @@ self.addEventListener('activate', event => {
 
 // Fetch event: serve from cache, fallback to network, then to offline page
 self.addEventListener('fetch', event => {
-  // We only want to handle GET requests for navigation
+  const url = new URL(event.request.url);
+  
+  // Handle navigation requests (HTML pages)
   if (event.request.mode === 'navigate' || 
       (event.request.method === 'GET' && 
        event.request.headers.get('accept').includes('text/html'))) {
     event.respondWith(
       fetch(event.request)
         .catch(error => {
-          // The network failed, try to serve the offline page from cache
-          console.log('Fetch failed; returning offline page instead.', error);
+          console.log('Navigation fetch failed; returning offline page instead.', error);
           return caches.match(OFFLINE_URL);
         })
     );
-  } else {
-    // For non-navigation requests (like CSS, JS, images), try cache then network
+  } 
+  // Handle static assets (CSS, JS, images) - cache first
+  else if (url.pathname.startsWith('/static/')) {
     event.respondWith(
       caches.match(event.request)
         .then(response => {
-          return response || fetch(event.request);
+          if (response) {
+            return response; // Return cached version
+          }
+          // If not in cache, fetch and cache
+          return fetch(event.request).then(response => {
+            if (response.status === 200) {
+              const responseClone = response.clone();
+              caches.open(CACHE_NAME).then(cache => {
+                cache.put(event.request, responseClone);
+              });
+            }
+            return response;
+          });
         })
         .catch(error => {
-          console.log('Asset fetch failed:', event.request.url, error);
+          console.log('Static asset fetch failed:', event.request.url, error);
+        })
+    );
+  }
+  // Handle API calls and other requests - network first
+  else {
+    event.respondWith(
+      fetch(event.request)
+        .catch(error => {
+          console.log('API/other fetch failed:', event.request.url, error);
+          // Could return a cached API response or error page here
         })
     );
   }

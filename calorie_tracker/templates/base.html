@@ -2,7 +2,7 @@
 <html lang="en" class="bg-zinc-900 text-zinc-100">
 <head>
     <meta charset="UTF-8">
-    <meta name="csrf-token" content="{{ csrf_token() }}"> {# Add this line #}
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="icon" href="{{ url_for('static', filename='images/favicon.png') }}" type="image/png">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Calorie Tracker</title>
@@ -19,6 +19,116 @@
 .fade-in.visible {
   opacity: 1;
   transform: none;
+}
+
+/* Enhanced mobile-only touch interactions */
+@media (max-width: 768px) {
+  .touch-feedback {
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      -webkit-tap-highlight-color: transparent;
+  }
+
+  .touch-feedback:active {
+      transform: scale(0.96);
+      opacity: 0.85;
+  }
+
+  /* Button press animations - mobile only */
+  button, .btn, a[role="button"], input[type="submit"] {
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      -webkit-tap-highlight-color: transparent;
+  }
+
+  button:active, .btn:active, a[role="button"]:active, input[type="submit"]:active {
+      transform: scale(0.96);
+      filter: brightness(0.9);
+  }
+
+  /* Card/container press feedback - mobile only */
+  .card-interactive {
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      -webkit-tap-highlight-color: transparent;
+  }
+
+  .card-interactive:active {
+      transform: translateY(2px);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Link press feedback - mobile only */
+  a:not([role="button"]) {
+      transition: color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      -webkit-tap-highlight-color: transparent;
+  }
+
+  a:active:not([role="button"]) {
+      color: #60a5fa !important; /* blue-400 */
+  }
+
+  /* Form input focus animations - mobile only */
+  input, textarea, select {
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  input:focus, textarea:focus, select:focus {
+      transform: scale(1.015);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+  }
+
+  /* Remove default focus outlines on mobile */
+  button:focus, input:focus, textarea:focus, select:focus {
+      outline: none;
+  }
+}
+
+/* Desktop styles - no touch feedback */
+@media (min-width: 769px) {
+  button, .btn, a[role="button"], input[type="submit"], 
+  .touch-feedback, .card-interactive, a {
+      transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+      -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Only basic hover effects on desktop */
+  button:hover, .btn:hover, a[role="button"]:hover, input[type="submit"]:hover {
+      filter: brightness(1.1);
+  }
+
+  input:focus, textarea:focus, select:focus {
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+      outline: none;
+  }
+}
+
+/* Loading states */
+.loading {
+    pointer-events: none;
+    opacity: 0.7;
+    position: relative;
+}
+
+.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid transparent;
+    border-top: 2px solid currentColor;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Smooth scrolling */
+html {
+    scroll-behavior: smooth;
 }
 </style>
 <body class="min-h-screen flex flex-col font-sans antialiased">
@@ -130,6 +240,91 @@
         if (content) {
           setTimeout(() => content.classList.add('visible'), 20);
         }
+
+        // Check if on mobile device
+        function isMobileDevice() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+        }
+
+        // Add touch feedback classes ONLY on mobile
+        function addTouchFeedback() {
+            if (isMobileDevice()) {
+                // Add touch feedback to buttons and interactive elements
+                const interactiveElements = document.querySelectorAll(
+                    'button, .btn, a[href], input[type="submit"], input[type="button"], [role="button"]'
+                );
+                
+                interactiveElements.forEach(element => {
+                    if (!element.classList.contains('no-touch-feedback')) {
+                        element.classList.add('touch-feedback');
+                    }
+                });
+                
+                // Add card interaction to clickable containers
+                const cards = document.querySelectorAll('.bg-zinc-800, .bg-zinc-900, [class*="bg-"][class*="rounded"]');
+                cards.forEach(card => {
+                    if (card.onclick || card.querySelector('a') || card.querySelector('button')) {
+                        card.classList.add('card-interactive');
+                    }
+                });
+            }
+        }
+
+        // Add haptic feedback for mobile devices only
+        function addHapticFeedback() {
+            if ('vibrate' in navigator && isMobileDevice()) {
+                // Add vibration to button clicks only
+                document.addEventListener('click', function(e) {
+                    const element = e.target.closest('button, .btn, input[type="submit"], input[type="button"]');
+                    if (element && !element.classList.contains('no-haptic')) {
+                        navigator.vibrate(6); // Even more subtle vibration
+                    }
+                });
+
+                // Add vibration to mobile menu toggle only
+                const navToggle = document.getElementById('nav-toggle');
+                if (navToggle) {
+                    navToggle.addEventListener('click', function() {
+                        navigator.vibrate(8);
+                    });
+                }
+            }
+        }
+
+        // Enhanced form submission feedback for mobile only with smoother animations
+        function addFormFeedback() {
+            if (isMobileDevice()) {                
+                // Add ultra-smooth input focus feedback for mobile
+                document.addEventListener('focusin', function(e) {
+                    if (e.target.matches('input, textarea, select')) {
+                        e.target.style.transition = 'all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+                        e.target.style.transform = 'scale(1.015)';
+                        e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.3)';
+                    }
+                });
+                
+                document.addEventListener('focusout', function(e) {
+                    if (e.target.matches('input, textarea, select')) {
+                        e.target.style.transition = 'all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+                        e.target.style.transform = 'scale(1)';
+                        e.target.style.boxShadow = 'none';
+                    }
+                });
+            }
+        }
+
+        // Initialize all enhancements
+        addTouchFeedback();
+        addHapticFeedback();
+        addFormFeedback();
+
+        // Re-apply to dynamically added content (mobile only)
+        const observer = new MutationObserver(() => {
+            if (isMobileDevice()) {
+                addTouchFeedback();
+            }
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
       });
 
       // Ask for notification permission on load
@@ -141,14 +336,8 @@
         });
       }
 
-      // Register service worker
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('{{ url_for("serve_sw") }}')
-          .then(registration => {
-            console.log('Service Worker registered with scope:', registration.scope);
-          }).catch(error => {
-            console.error('Service Worker registration failed:', error);
-          });
+  if (typeof navigator.serviceWorker !== 'undefined') {
+      navigator.serviceWorker.register('{{ url_for("serve_sw") }}');
       }
     </script>
     <!-- Responsive Animated Navbar End -->
