@@ -1,12 +1,12 @@
 const CACHE_NAME = 'calorie-tracker-v1'; // Increment cache version
-const OFFLINE_URL = '/offline'; // The URL for your offline page route
+const OFFLINE_URL = '/offline';
 
 const ASSETS_TO_CACHE = [
-  '/', // Or your main landing page URL if different
+  '/',
   '/static/css/output.css',
   '/static/images/favicon.png',
+  '/landing',
   OFFLINE_URL // Add the offline page to assets to cache
-  // Add other static assets or routes you want cached
 ];
 
 // Install event: cache files
@@ -63,11 +63,7 @@ self.addEventListener('fetch', event => {
           return response || fetch(event.request);
         })
         .catch(error => {
-          // For assets, you might not want to return the offline HTML page.
-          // You could return a specific placeholder or just let it fail.
           console.log('Asset fetch failed:', event.request.url, error);
-          // Optionally, return a placeholder image/style if appropriate
-          // For now, just let it fail to show the difference from navigation
         })
     );
   }
