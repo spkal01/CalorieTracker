@@ -277,7 +277,7 @@ html {
                 document.addEventListener('click', function(e) {
                     const element = e.target.closest('button, .btn, input[type="submit"], input[type="button"]');
                     if (element && !element.classList.contains('no-haptic')) {
-                        navigator.vibrate(6); // Even more subtle vibration
+                        navigator.vibrate(8);
                     }
                 });
 
@@ -285,7 +285,7 @@ html {
                 const navToggle = document.getElementById('nav-toggle');
                 if (navToggle) {
                     navToggle.addEventListener('click', function() {
-                        navigator.vibrate(8);
+                        navigator.vibrate(10);
                     });
                 }
             }
