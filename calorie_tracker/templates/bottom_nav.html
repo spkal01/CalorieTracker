@@ -1,5 +1,5 @@
 {% if current_user.is_authenticated %}
-<nav class="fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-md border-t border-zinc-700 z-50" style="padding-bottom: env(safe-area-inset-bottom, 0px);">
+<nav class=" bg-zinc-900/95 backdrop-blur-md border-t border-zinc-700">
     <div class="flex items-center justify-around h-16 px-4">
         <a href="{{ url_for('index') }}" class="flex flex-col items-center justify-center flex-1 py-2 text-center touch-manipulation" style="min-height: 44px;">
             <svg class="w-6 h-6 mb-1 {% if request.endpoint == 'index' %}text-blue-400{% else %}text-zinc-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">

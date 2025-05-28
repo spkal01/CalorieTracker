@@ -1,4 +1,4 @@
-const CACHE_NAME = 'calorie-tracker-v5';
+const CACHE_NAME = 'calorie-tracker-v11';
 const OFFLINE_URL = '/offline';
 
 const ASSETS_TO_CACHE = [

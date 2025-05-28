@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="bg-zinc-900 text-zinc-100">
+<html lang="en" class="bg-zinc-900 text-zinc-100 h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -23,22 +23,6 @@
   transform: none;
 }
 
-/* Bottom Navigation Fixes */
-#mobile-nav-container {
-    position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    z-index: 99999 !important;
-    height: calc(4rem + env(safe-area-inset-bottom, 0px)) !important;
-    /* Clean isolation properties */
-    isolation: isolate !important;
-    transform: translateZ(0) !important;
-    /* ADDED: Force the navbar to stay in place regardless of content */
-    contain: layout style paint !important;
-    will-change: auto !important;
-}
-
 /* Ensure navigation links work normally */
 #mobile-nav-container nav a {
     pointer-events: auto !important;
@@ -46,34 +30,11 @@
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    /* ADDED: Prevent any layout shifts */
     contain: layout !important;
 }
 
 /* ADDED: Override any mobile.css that might be interfering */
 @media (max-width: 768px) {
-  /* Force override bottom nav positioning from mobile.css */
-  .bottom-nav,
-  #mobile-nav-container {
-    position: fixed !important;
-    bottom: 0 !important;
-    z-index: 99999 !important;
-    transform: none !important;
-    transition: none !important;
-  }
-
-  /* Prevent any content from pushing navbar around */
-  #mobile-nav-container * {
-    position: relative !important;
-  }
-
-  /* Body padding for navbar */
-  body {
-      padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px)) !important;
-      /* ADDED: Prevent content from affecting navbar */
-      contain: layout !important;
-  }
-
   /* ADDED: Prevent dashboard content from interfering */
   .mobile-container,
   .mobile-card,
@@ -137,6 +98,7 @@
   button:focus, input:focus, textarea:focus, select:focus {
       outline: none;
   }
+
 }
 
 /* Desktop styles - no touch feedback */
@@ -184,12 +146,8 @@
     100% { transform: rotate(360deg); }
 }
 
-/* Smooth scrolling */
-html {
-    scroll-behavior: smooth;
-}
 </style>
-<body class="min-h-screen flex flex-col font-sans antialiased">
+<body class="min-h-full flex flex-col font-sans antialiased">
     {% if current_user.is_authenticated %}
     <!-- Responsive Animated Navbar Start (Desktop Only) -->
     <nav class="bg-zinc-900 border-b border-zinc-800 hidden md:block">
@@ -226,11 +184,6 @@ html {
     {% endif %}
     <script>
       document.addEventListener('DOMContentLoaded', function () {
-        // const toggle = document.getElementById('nav-toggle'); // No longer needed for top nav on mobile
-        // const menu = document.getElementById('nav-menu'); // No longer needed for top nav on mobile
-        // if (toggle && menu) { ... } // This block can be removed or adapted if other toggles use it
-
-        // Dropdown click toggle with animation (for desktop nav)
         const dropdownToggle = document.getElementById('dropdown-toggle');
         const dropdownMenu = document.getElementById('dropdown-menu');
         const dropdownArrow = document.getElementById('dropdown-arrow');
@@ -342,21 +295,12 @@ html {
             }
         }
 
-        // Initialize all enhancements
+        // Initialize other enhancements (existing)
         addTouchFeedback();
         addHapticFeedback();
         addFormFeedback();
 
-        // Simple navbar isolation - REPLACE the aggressive code with this:
-        const mobileNavContainer = document.getElementById('mobile-nav-container');
-        if (mobileNavContainer && isMobileDevice()) {
-            // Only prevent scrolling on the navbar container itself
-            mobileNavContainer.addEventListener('touchmove', function(event) {
-                event.preventDefault();
-            }, { passive: false });
-        }
-
-        // Re-apply to dynamically added content (mobile only)
+        // Re-apply dynamic adjustments (existing observer)
         const observer = new MutationObserver(() => {
             if (isMobileDevice()) {
                 addTouchFeedback();
@@ -379,7 +323,7 @@ html {
       }
     </script>
     <!-- Responsive Animated Navbar End -->
-    <main class="flex-grow px-6 py-10">
+    <main class="flex-grow px-6 py-10 md:pb-10">
         <div id="content-container" class="{{ page_max_width | default('max-w-3xl') }} mx-auto fade-in">
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
@@ -408,13 +352,9 @@ html {
         </div>
     </main>
     
-
-    <footer class="text-center text-xs text-zinc-500 py-6 border-t border-zinc-800 {% if current_user.is_authenticated %}pb-[calc(60px+env(safe-area-inset-bottom,0px))] md:pb-6{% endif %}">
-        &copy; {{ year }} Calorie Tracker
-    </footer>
     {% if current_user.is_authenticated %}
     <!-- Bottom Navigation Container - Mobile Only -->
-    <div id="mobile-nav-container" class="md:hidden fixed bottom-0 left-0 right-0 z-[99999] bg-zinc-900 border-t border-zinc-800">
+    <div id="mobile-nav-container" class="md:hidden left-0 right-0 bg-zinc-900 border-t border-zinc-800">
         {% include 'bottom_nav.html' %}
     </div>
     {% endif %}

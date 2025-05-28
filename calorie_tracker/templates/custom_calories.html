@@ -1,105 +1,175 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div id="upload-container" class="bg-zinc-800 border border-zinc-700 p-6 rounded-lg shadow-sm {% if ai_result %}hidden{% endif %}">
-    <form action="{{ url_for('custom_calories') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div>
-            <label class="block text-sm font-medium text-zinc-300 mb-1">Upload Image</label>
-            <input type="file" name="file" accept="image/*"
-                   class="block w-full bg-zinc-900 border border-zinc-700 text-zinc-100 file:bg-zinc-700 file:text-zinc-100 file:rounded file:border-none file:px-3 file:py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-        </div>
-        <button type="submit"
-                id="upload-btn"
-                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition opacity-50 cursor-not-allowed"
-                disabled>
-            Upload & Analyze
-        </button>
-    </form>
-</div>
+<div class="space-y-8 justify-center items-center flex flex-col min-h-[60vh]">
+    <div id="upload-container" class="bg-zinc-800 border border-zinc-700 p-4 sm:p-6 rounded-lg shadow-sm {% if ai_result %}hidden{% endif %}">
+        <h2 class="text-xl sm:text-2xl font-semibold text-zinc-100 mb-4 text-center">Analyze Your Meal</h2>
+        <p class="text-sm text-zinc-400 mb-6 text-center">Upload an image of your food, and our AI will estimate its calorie content.</p>
+        <form action="{{ url_for('custom_calories') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div>
+                <label for="file-upload" class="block w-full cursor-pointer bg-zinc-700 hover:bg-zinc-600 border-2 border-dashed border-zinc-600 hover:border-zinc-500 text-zinc-400 hover:text-zinc-300 p-6 sm:p-8 rounded-lg text-center transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-3 text-zinc-500">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <span class="block text-sm sm:text-base font-medium">Tap or Click to Upload Image</span>
+                    <span id="file-name" class="block text-xs text-blue-400 mt-1"></span>
+                </label>
+                <input type="file" name="file" id="file-upload" accept="image/*" class="hidden">
+            </div>
+            <button type="submit"
+                    id="upload-btn"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition opacity-50 cursor-not-allowed text-base sm:text-lg"
+                    disabled>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block mr-2 -mt-1">
+                    <path d="m9 9 5 12 1.8-5.2L21 14Z"></path><path d="M7.2 2.2 8 5.1"></path><path d="m5.1 8-2.9-.8"></path><path d="M14 4.1 12 6"></path><path d="m6 12-1.9 2"></path>
+                </svg>
+                Upload & Analyze
+            </button>
+        </form>
+    </div>
 
-{% if ai_result %}
-<div id="result-container" class="mt-8 bg-zinc-800 border border-zinc-700 p-4 rounded-lg text-zinc-100">
-    <h2 class="text-lg font-semibold mb-2">AI Analysis</h2>
-    <!-- Markdown content container -->
-    <div id="markdown-content" class="prose max-w-none"></div>
-    <script>
-        const markdownContent = `{{ ai_result | safe }}`;
-        document.getElementById('markdown-content').innerHTML = marked.parse(markdownContent);
-    </script>
-    {% if calories and food_name %}
-    <form action="{{ url_for('index') }}" method="GET" class="mt-6">
-        <input type="hidden" name="calories" value="{{ calories }}">
-        <input type="hidden" name="food_name" value="{{ food_name }}">
-        <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded transition">
-            Save "{{ food_name }}" ({{ calories }} kcal)
-        </button>
-    </form>
+    {% if ai_result %}
+    <div id="result-container" class="bg-zinc-800 border border-zinc-700 p-4 sm:p-6 rounded-lg text-zinc-100 shadow-sm">
+        <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-center">AI Analysis Complete!</h2>
+        <!-- Markdown content container -->
+        <div id="markdown-content" class="prose prose-sm sm:prose-base max-w-none prose-invert prose-headings:text-blue-400 prose-a:text-blue-400 hover:prose-a:text-blue-300 prose-strong:text-zinc-100">
+            {# Content will be injected by script #}
+        </div>
+        <script>
+            const markdownContent = `{{ ai_result | safe }}`;
+            document.getElementById('markdown-content').innerHTML = marked.parse(markdownContent);
+        </script>
+        {% if calories and food_name %}
+        <form action="{{ url_for('index') }}" method="GET" class="mt-6 space-y-3">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="calories" value="{{ calories }}">
+            <input type="hidden" name="food_name" value="{{ food_name }}">
+            <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition text-base sm:text-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block mr-2 -mt-1">
+                    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                </svg>
+                Save "{{ food_name }}" ({{ calories }} kcal)
+            </button>
+        </form>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if img_path %}
+    <div id="image-preview-container" class="mt-8 text-center bg-zinc-800 border border-zinc-700 p-4 sm:p-6 rounded-lg shadow-sm">
+        <h2 class="text-lg sm:text-xl font-medium text-zinc-200 mb-4">Your Uploaded Image</h2>
+        <div class="mb-4">
+            <img src="{{ url_for('static', filename='uploads/' + img_path.split('/')[-1]) }}"
+                 alt="Processed Image" class="rounded-lg max-w-full sm:max-w-md mx-auto border border-zinc-700 shadow-md">
+        </div>
+        <div>
+            <button onclick="resetUpload()" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition text-base sm:text-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block mr-2 -mt-1">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                Upload Another Image
+            </button>
+        </div>
+    </div>
     {% endif %}
 </div>
-{% endif %}
 
-{% if img_path %}
-<div id="image-container" class="mt-10 text-center">
-    <h2 class="text-lg font-medium text-zinc-200">Processed Image</h2>
-    <div class="mt-4">
-        <img src="{{ url_for('static', filename='uploads/' + img_path.split('/')[-1]) }}"
-             alt="Processed Image" class="rounded-lg max-w-md mx-auto border border-zinc-700 shadow">
-    </div>
-    <div class="mt-4">
-        <button onclick="resetUpload()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition">
-            Upload Another Image
-        </button>
-    </div>
-</div>
-{% endif %}
-
-<div id="loading-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(24,24,27,0.85); z-index:1000; align-items:center; justify-content:center;">
+<div id="loading-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(18,18,20,0.9); z-index:10000; align-items:center; justify-content:center; flex-direction: column; padding: 20px; text-align: center;" class="backdrop-blur-sm">
     <div class="flex flex-col items-center">
         <!-- Bouncing food emoji -->
-        <div class="text-5xl mb-4 animate-bounce" style="animation-duration:1s;">🍔</div>
+        <div class="text-6xl sm:text-7xl mb-6 animate-bounce" style="animation-duration:1s;">
+            {% set food_emojis = ['🍔', '🍕', '🥗', '🍩', '🍎', '🍣', '🌮'] %}
+            {{ food_emojis | random }}
+        </div>
         <!-- Animated spinner -->
-        <svg class="animate-spin h-12 w-12 text-blue-400 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+        <svg class="animate-spin h-10 w-10 sm:h-12 sm:w-12 text-blue-400 mb-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
         <!-- Animated dots message -->
-        <span class="text-white text-lg font-semibold flex items-center">
+        <span class="text-white text-lg sm:text-xl font-semibold flex items-center">
             Analyzing your food
-            <span id="loading-dots" class="ml-1">.</span>
+            <span id="loading-dots" class="ml-1 w-3 inline-block text-left">.</span>
         </span>
+        <p class="text-zinc-400 text-sm mt-3">This might take a moment...</p>
     </div>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.querySelector('form[enctype="multipart/form-data"]');
-    const fileInput = form.querySelector('input[type="file"]');
+    const fileInput = document.getElementById('file-upload'); // Use ID for file input
     const uploadBtn = document.getElementById('upload-btn');
+    const fileNameDisplay = document.getElementById('file-name');
+
     if (form && fileInput && uploadBtn) {
         fileInput.addEventListener('change', function() {
             if (fileInput.files.length > 0) {
                 uploadBtn.disabled = false;
                 uploadBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                if (fileNameDisplay) {
+                    fileNameDisplay.textContent = fileInput.files[0].name;
+                }
             } else {
                 uploadBtn.disabled = true;
                 uploadBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                if (fileNameDisplay) {
+                    fileNameDisplay.textContent = '';
+                }
             }
         });
         form.addEventListener('submit', function() {
             document.getElementById('loading-overlay').style.display = 'flex';
+            // Randomize emoji on each load
+            const emojis = ['🍔', '🍕', '🥗', '🍩', '🍎', '🍣', '🌮', '🍜', '🍦', '🍪'];
+            const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+            const emojiElement = document.querySelector('#loading-overlay .animate-bounce');
+            if (emojiElement) {
+                emojiElement.textContent = randomEmoji;
+            }
         });
     }
 
     // Animated dots for loading message
     let dots = 1;
-    setInterval(function() {
-        const el = document.getElementById('loading-dots');
-        if (el) {
+    const loadingDotsEl = document.getElementById('loading-dots');
+    if (loadingDotsEl) { // Check if element exists
+        setInterval(function() {
             dots = (dots % 3) + 1;
-            el.textContent = '.'.repeat(dots);
-        }
-    }, 500);
+            loadingDotsEl.textContent = '.'.repeat(dots);
+        }, 500);
+    }
 });
+
+function resetUpload() {
+    // Hide result and image preview
+    const resultContainer = document.getElementById('result-container');
+    const imagePreviewContainer = document.getElementById('image-preview-container');
+    if (resultContainer) resultContainer.classList.add('hidden');
+    if (imagePreviewContainer) imagePreviewContainer.classList.add('hidden');
+
+    // Show upload container
+    const uploadContainer = document.getElementById('upload-container');
+    if (uploadContainer) uploadContainer.classList.remove('hidden');
+
+    // Reset file input and button state
+    const fileInput = document.getElementById('file-upload');
+    const uploadBtn = document.getElementById('upload-btn');
+    const fileNameDisplay = document.getElementById('file-name');
+    if (fileInput) fileInput.value = ''; // Clear the selected file
+    if (uploadBtn) {
+        uploadBtn.disabled = true;
+        uploadBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    }
+    if (fileNameDisplay) fileNameDisplay.textContent = '';
+
+    // Optional: Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 </script>
 {% endblock %}

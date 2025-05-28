@@ -23,20 +23,72 @@
     background: transparent !important;
     transition: none;
 }
+
+/* Button loading animation styles */
+.analyze-btn {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.analyze-btn.loading {
+    background: linear-gradient(45deg, #16a34b, #15803d);
+    pointer-events: none;
+    transform: scale(0.98);
+}
+
+.analyze-btn.loading::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid transparent;
+    border-top: 2px solid white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.analyze-btn.loading .btn-text {
+    opacity: 0;
+    transform: translateY(-20px);
+}
+
+.analyze-btn .btn-text {
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    display: inline-block;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+.analyze-btn:active {
+    animation: pulse 0.2s ease-in-out;
+}
 </style>
+
 <div class="flex flex-col items-center justify-center min-h-[60vh]">
     <div class="w-full max-w-2xl bg-zinc-800 border border-zinc-700 rounded-lg shadow p-6">
         <h2 class="text-2xl font-bold text-zinc-100 mb-6 text-center">Saved Calorie Entries</h2>
         <!-- New: Describe Meal Form -->
-        <form action="{{ url_for('describe_meal') }}" method="POST" class="mb-8">
+        <form id="analyzeMealForm" action="{{ url_for('describe_meal') }}" method="POST" class="mb-8">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <label for="meal_description" class="block text-zinc-300 mb-1">Describe what you ate:</label>
             <textarea id="meal_description" name="meal_description" rows="2"
                 class="w-full bg-zinc-900 border border-zinc-700 text-zinc-100 rounded px-3 py-2 mb-2 resize-none"
                 placeholder="e.g. 2 eggs, a slice of toast, and a glass of orange juice"></textarea>
             <div class="flex justify-center">
-                <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded transition">
-                    Analyze & Add
+                <button type="submit" id="analyzeBtn" class="analyze-btn bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded transition">
+                    <span class="btn-text">Analyze & Add</span>
                 </button>
             </div>
         </form>
@@ -75,7 +127,7 @@
                                     class="transition-transform duration-200 text-blue-400 text-lg"
                                     style="display: inline-block;"
                                 >&#9654;</span>
-                                <span class="font-semibold text-zinc-100">{{ entry.date }}</span>
+                                <span class="font-semibold text-zinc-100">{{ entry.date[5:] }}</span>
                             </button>
                         </td>
                         <td class="py-2 px-2 border-b border-zinc-700">
@@ -103,7 +155,9 @@
                             <div id="foods-content-{{ entry.id }}" class="expandable-content-inner rounded-lg bg-black border border-zinc-700 p-0 shadow-inner">
                                 <div class="rounded-lg bg-zinc-800 border border-zinc-700 p-4 shadow-inner">
                                     <div class="flex items-center justify-between mb-2">
-                                        <span class="font-semibold text-zinc-200 text-lg">Foods for {{ entry.date }}</span>
+                                        <span class="font-semibold text-zinc-200 text-lg">
+                                            Foods for {{ entry.date[5:] }}
+                                        </span>
                                         <span class="text-sm text-zinc-400">Total: <span class="font-semibold text-blue-400">{{ entry.total_calories }} kcal</span></span>
                                     </div>
                                     <table class="w-full text-left mb-2">
@@ -136,29 +190,6 @@
                     {% endfor %}
                 </tbody>
             </table>
-            <script>
-            function toggleFoods(id) {
-                const tr = document.getElementById('foods-' + id);
-                const content = document.getElementById('foods-content-' + id);
-                const icon = document.getElementById('toggle-icon-' + id);
-                const btn = document.getElementById('expand-btn-' + id);
-
-                // Use the .open class to determine state
-                if (content.classList.contains('open')) {
-                    // COLLAPSE
-                    content.classList.remove('open');
-                    icon.innerHTML = "&#9654;";
-                    btn.setAttribute('aria-expanded', 'false');
-                    btn.classList.remove('expanded-ring');
-                } else {
-                    // EXPAND
-                    content.classList.add('open');
-                    icon.innerHTML = "&#9660;";
-                    btn.setAttribute('aria-expanded', 'true');
-                    btn.classList.add('expanded-ring');
-                }
-            }
-            </script>
         {% else %}
             <div class="text-center text-zinc-400 py-8">
                 No saved calorie entries yet.
@@ -166,4 +197,52 @@
         {% endif %}
     </div>
 </div>
+
+<script>
+function toggleFoods(id) {
+    const tr = document.getElementById('foods-' + id);
+    const content = document.getElementById('foods-content-' + id);
+    const icon = document.getElementById('toggle-icon-' + id);
+    const btn = document.getElementById('expand-btn-' + id);
+
+    // Use the .open class to determine state
+    if (content.classList.contains('open')) {
+        // COLLAPSE
+        content.classList.remove('open');
+        icon.innerHTML = "&#9654;";
+        btn.setAttribute('aria-expanded', 'false');
+        btn.classList.remove('expanded-ring');
+    } else {
+        // EXPAND
+        content.classList.add('open');
+        icon.innerHTML = "&#9660;";
+        btn.setAttribute('aria-expanded', 'true');
+        btn.classList.add('expanded-ring');
+    }
+}
+
+// Analyze button animation
+document.addEventListener('DOMContentLoaded', function() {
+    const analyzeForm = document.getElementById('analyzeMealForm');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const mealDescription = document.getElementById('meal_description');
+
+    if (analyzeForm && analyzeBtn) {
+        analyzeForm.addEventListener('submit', function(e) {
+            // Check if textarea is empty
+            if (!mealDescription.value.trim()) {
+                return; // Let the form validation handle this
+            }
+
+            // Add loading state
+            analyzeBtn.classList.add('loading');
+            
+            // Optional: Add haptic feedback for mobile
+            if ('vibrate' in navigator) {
+                navigator.vibrate(50);
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

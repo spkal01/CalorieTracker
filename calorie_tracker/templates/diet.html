@@ -1,66 +1,288 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="flex flex-col items-center justify-center min-h-[60vh]">
-    <div class="w-full max-w-5xl bg-zinc-800 border border-zinc-700 rounded-lg shadow p-6">
-        <!-- Motivational Tip: Centered and Wide -->
-        <div class="flex justify-center mb-8">
-            <div class="w-full max-w-2xl bg-blue-900/40 border border-blue-700 rounded-lg p-6 text-center">
-                <span class="block text-blue-300 font-semibold mb-1 text-lg">Motivational Tip</span>
-                <span class="text-zinc-100 italic text-base">
-                    {{ motivational_tip|default("Small steps every day lead to big results in the end. Keep going!") }}
-                </span>
-            </div>
-        </div>
-        <h2 class="text-2xl font-bold text-zinc-100 mb-8 text-center">Today's Calorie Dashboard</h2>
-        <div class="flex flex-col md:flex-row gap-8">
-            <!-- Left: Chart & Stats -->
-            <div class="flex-1 flex flex-col items-center justify-center">
-                <canvas id="caloriePie" width="180" height="180"></canvas>
-                <div class="mt-6 text-center">
-                    <span class="text-2xl font-semibold text-zinc-100">{{ calories_consumed }}</span>
-                    <span class="text-zinc-400">/</span>
-                    <span class="text-zinc-400">{{ daily_calorie_goal }} kcal</span>
-                </div>
-                <div class="mt-2 text-base text-zinc-400">
-                    {% if calories_consumed < daily_calorie_goal %}
-                        {{ daily_calorie_goal - calories_consumed }} kcal left to your goal!
-                    {% elif calories_consumed == daily_calorie_goal %}
-                        You've hit your goal! 🎉
-                    {% else %}
-                        {{ calories_consumed - daily_calorie_goal }} kcal over your goal.
-                    {% endif %}
-                </div>
-            </div>
-            <!-- Right: AI Analysis -->
-            <div class="flex-1 flex flex-col justify-between">
-                <div class="bg-zinc-900/60 border border-zinc-700 rounded-lg p-4 mb-4 text-left overflow-auto prose prose-invert max-w-none transition-all duration-700 ease-in-out"
-                     id="aiAnalysisBox"
-                     style="max-height: 120px; opacity: 1;">
-                    <span class="block text-blue-300 font-semibold mb-2">AI Analysis for Today</span>
-                    <div id="aiAnalysisLoading" class="flex items-center gap-2 text-zinc-400 text-sm">
-                        <svg class="animate-spin h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-                        </svg>
-                        Loading statistics...
-                    </div>
-                    <div id="aiAnalysisContent" class="text-zinc-100 text-sm hidden transition-opacity duration-700"></div>
-                </div>
-            </div>
-        </div>
-        <!-- Centered View Details Button at the bottom -->
-        <div class="flex justify-center mt-8 space-x-4">
-            <a href="{{ url_for('create_diet_plan') }}"
-               class="bg-green-600 hover:bg-green-700 text-white font-semibold px-8 py-3 rounded-lg text-lg shadow transition">
-                View and Create a Diet Plan
-            </a>
-            <a href="{{ url_for('saved') }}"
-               class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded-lg text-lg shadow transition">
-                View Details
-            </a>
-        </div>
+<!-- Mobile Header (mobile only) -->
+<div class="mobile-header md:hidden">
+  <div class="page-title">Diet Overview</div>
+  <div class="header-actions">
+    <a href="{{ url_for('settings') }}" class="header-action-button">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"></circle>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+      </svg>
+    </a>
+  </div>
+</div>
+
+<!-- Desktop Header (desktop only) -->
+<div class="hidden md:block mb-8">
+  <h1 class="text-3xl font-bold text-zinc-100 text-center">Diet Overview</h1>
+  <p class="text-zinc-400 text-center mt-2">Track your daily nutrition goals and progress</p>
+</div>
+
+<!-- Mobile Container -->
+<div class="md:hidden mobile-container space-y-4">
+  <!-- Motivational Tip Card -->
+  <div class="mobile-card">
+    <div class="flex items-start space-x-3 mb-3">
+      <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white">
+          <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+        </svg>
+      </div>
+      <div class="flex-1">
+        <div class="mobile-card-title text-sm text-blue-300 mb-1">💡 Daily Motivation</div>
+        <p class="text-sm text-zinc-300 leading-relaxed">
+          {{ motivational_tip|default("Small steps every day lead to big results in the end. Keep going!") }}
+        </p>
+      </div>
     </div>
+  </div>
+
+  <!-- Calorie Progress Card -->
+  <div class="mobile-card">
+    <div class="mobile-card-title mb-4 text-center">Today's Progress</div>
+    
+    <!-- Chart Container -->
+    <div class="flex flex-col items-center mb-4">
+      <div class="w-36 h-36 relative">
+        <canvas id="caloriePie"></canvas>
+        <!-- Center Text Overlay -->
+        <div class="absolute inset-0 flex flex-col items-center justify-center">
+          <span class="text-lg font-bold text-zinc-100">{{ calories_consumed }}</span>
+          <span class="text-xs text-zinc-400">/ {{ daily_calorie_goal }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Progress Stats -->
+    <div class="grid grid-cols-3 gap-3 text-center border-t border-zinc-700 pt-4">
+      <div>
+        <div class="text-lg font-semibold text-green-400">{{ calories_consumed }}</div>
+        <div class="text-xs text-zinc-400">Consumed</div>
+      </div>
+      <div>
+        <div class="text-lg font-semibold text-blue-400">
+          {% if calories_consumed < daily_calorie_goal %}
+            {{ daily_calorie_goal - calories_consumed }}
+          {% else %}
+            0
+          {% endif %}
+        </div>
+        <div class="text-xs text-zinc-400">Remaining</div>
+      </div>
+      <div>
+        <div class="text-lg font-semibold text-zinc-100">{{ daily_calorie_goal }}</div>
+        <div class="text-xs text-zinc-400">Goal</div>
+      </div>
+    </div>
+
+    <!-- Status Badge -->
+    <div class="mt-4 text-center">
+      {% if calories_consumed < daily_calorie_goal %}
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-900/50 text-blue-300 border border-blue-700/50">
+          🎯 {{ daily_calorie_goal - calories_consumed }} kcal to go
+        </span>
+      {% elif calories_consumed == daily_calorie_goal %}
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-900/50 text-green-300 border border-green-700/50">
+          🎉 Goal achieved!
+        </span>
+      {% else %}
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-orange-900/50 text-orange-300 border border-orange-700/50">
+          ⚠️ {{ calories_consumed - daily_calorie_goal }} kcal over
+        </span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- AI Analysis Card -->
+  <div class="mobile-card">
+    <div class="mobile-card-title mb-3 flex items-center">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400 mr-2">
+        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+      </svg>
+      AI Nutrition Analysis
+    </div>
+    
+    <div id="aiAnalysisBox" class="transition-all duration-500 ease-in-out overflow-hidden" style="max-height: 120px;">
+      <div id="aiAnalysisLoading" class="flex items-center space-x-3 text-zinc-400 py-4">
+        <svg class="animate-spin h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+        </svg>
+        <span class="text-sm">Analyzing your nutrition data...</span>
+      </div>
+      <div id="aiAnalysisContent" class="hidden prose prose-sm prose-invert max-w-none text-zinc-200"></div>
+    </div>
+    
+    <button id="expandAnalysisBtn" class="mt-3 text-blue-400 text-sm font-medium hidden">
+      <span id="expandText">Read more</span>
+      <svg id="expandIcon" class="inline w-4 h-4 ml-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Quick Actions Grid -->
+  <div class="grid grid-cols-1 gap-3">
+    <a href="{{ url_for('create_diet_plan') }}" class="mobile-card mobile-card-interactive">
+      <div class="flex items-center space-x-4">
+        <div class="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-white">
+            <path d="M14.5 4h-5L7 7H4a2 2 0 00-2 2v9a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2h-3l-2.5-3z"></path>
+            <circle cx="12" cy="13" r="3"></circle>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <div class="mobile-card-title text-base mb-1">Create Diet Plan</div>
+          <div class="text-sm text-zinc-400">AI-powered meal planning</div>
+        </div>
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-400">
+          <path d="M9 18l6-6-6-6"/>
+        </svg>
+      </div>
+    </a>
+
+    <a href="{{ url_for('saved') }}" class="mobile-card mobile-card-interactive">
+      <div class="flex items-center space-x-4">
+        <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-white">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"></path>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <div class="mobile-card-title text-base mb-1">View Details</div>
+          <div class="text-sm text-zinc-400">Your saved entries</div>
+        </div>
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-400">
+          <path d="M9 18l6-6-6-6"/>
+        </svg>
+      </div>
+    </a>
+  </div>
+</div>
+
+<!-- Desktop Container -->
+<div class="hidden md:block">
+  <div class="max-w-4xl mx-auto px-6">
+    <!-- Motivational Tip -->
+    <div class="mb-8">
+      <div class="bg-gradient-to-r from-blue-900/50 to-purple-900/50 border border-blue-700/50 rounded-xl p-6 text-center">
+        <div class="flex items-center justify-center mb-3">
+          <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mr-3">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white">
+              <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+            </svg>
+          </div>
+          <span class="text-blue-300 font-semibold text-lg">Daily Motivation</span>
+        </div>
+        <p class="text-zinc-200 text-base italic leading-relaxed max-w-2xl mx-auto">
+          {{ motivational_tip|default("Small steps every day lead to big results in the end. Keep going!") }}
+        </p>
+      </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <!-- Chart Section -->
+      <div class="bg-zinc-800 border border-zinc-700 rounded-xl p-6">
+        <h3 class="text-xl font-bold text-zinc-100 mb-6 text-center">Today's Progress</h3>
+        
+        <div class="flex flex-col items-center mb-6">
+          <div class="w-56 h-56 relative">
+            <canvas id="caloriePixPC"></canvas>
+            <div class="absolute inset-0 flex flex-col items-center justify-center">
+              <span class="text-2xl font-bold text-zinc-100">{{ calories_consumed }}</span>
+              <span class="text-sm text-zinc-400">/ {{ daily_calorie_goal }} kcal</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Desktop Stats -->
+        <div class="grid grid-cols-3 gap-4 text-center">
+          <div class="bg-zinc-700/50 rounded-lg p-4">
+            <div class="text-2xl font-bold text-green-400">{{ calories_consumed }}</div>
+            <div class="text-sm text-zinc-400">Consumed</div>
+          </div>
+          <div class="bg-zinc-700/50 rounded-lg p-4">
+            <div class="text-2xl font-bold text-blue-400">
+              {% if calories_consumed < daily_calorie_goal %}
+                {{ daily_calorie_goal - calories_consumed }}
+              {% else %}
+                0
+              {% endif %}
+            </div>
+            <div class="text-sm text-zinc-400">Remaining</div>
+          </div>
+          <div class="bg-zinc-700/50 rounded-lg p-4">
+            <div class="text-2xl font-bold text-zinc-100">{{ daily_calorie_goal }}</div>
+            <div class="text-sm text-zinc-400">Goal</div>
+          </div>
+        </div>
+
+        <!-- Status Badge -->
+        <div class="mt-6 text-center">
+          {% if calories_consumed < daily_calorie_goal %}
+            <span class="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-blue-900/50 text-blue-300 border border-blue-700/50">
+              🎯 {{ daily_calorie_goal - calories_consumed }} kcal to reach your goal
+            </span>
+          {% elif calories_consumed == daily_calorie_goal %}
+            <span class="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-green-900/50 text-green-300 border border-green-700/50">
+              🎉 Congratulations! Goal achieved!
+            </span>
+          {% else %}
+            <span class="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-orange-900/50 text-orange-300 border border-orange-700/50">
+              ⚠️ {{ calories_consumed - daily_calorie_goal }} kcal over your goal
+            </span>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- AI Analysis Section -->
+      <div class="bg-zinc-800 border border-zinc-700 rounded-xl p-6">
+        <div class="flex items-center mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400 mr-2">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+          <h3 class="text-xl font-bold text-zinc-100">AI Nutrition Analysis</h3>
+        </div>
+        
+        <div id="aiAnalysisBoxPC" class="transition-all duration-500 ease-in-out overflow-hidden" style="min-height: 200px;">
+          <div id="aiAnalysisLoadingPC" class="flex items-center space-x-3 text-zinc-400 py-8">
+            <svg class="animate-spin h-6 w-6 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+            </svg>
+            <span>Analyzing your nutrition data...</span>
+          </div>
+          <div id="aiAnalysisContentPC" class="hidden prose prose-base prose-invert max-w-none text-zinc-200"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+      <a href="{{ url_for('create_diet_plan') }}" 
+         class="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold px-8 py-4 rounded-xl text-lg shadow-lg hover:shadow-xl transition-all duration-200 text-center">
+        <div class="flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3">
+            <path d="M14.5 4h-5L7 7H4a2 2 0 00-2 2v9a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2h-3l-2.5-3z"></path>
+            <circle cx="12" cy="13" r="3"></circle>
+          </svg>
+          Create Diet Plan
+        </div>
+      </a>
+      <a href="{{ url_for('saved') }}" 
+         class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold px-8 py-4 rounded-xl text-lg shadow-lg hover:shadow-xl transition-all duration-200 text-center">
+        <div class="flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"></path>
+          </svg>
+          View Details
+        </div>
+      </a>
+    </div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -69,72 +291,132 @@
 document.addEventListener("DOMContentLoaded", function() {
     const consumed = Number("{{ calories_consumed|default(0, true) }}");
     const goal = Number("{{ daily_calorie_goal|default(1, true) }}");
-    const remaining = Math.max(goal - consumed, 0);
+    const remaining = Math.max(0, goal - consumed);
 
     let chartData, chartLabels, chartColors;
-    if (consumed === 0) {
+
+    if (goal <= 0) {
         chartData = [1];
-        chartLabels = ['No Data'];
-        chartColors = ['#3f3f46'];
+        chartLabels = ['Goal Not Set'];
+        chartColors = ['#4b5563'];
+    } else if (consumed === 0 && goal > 0) {
+        chartData = [goal];
+        chartLabels = ['To Consume'];
+        chartColors = ['#4b5563'];
+    } else if (consumed >= goal) {
+        chartData = [consumed];
+        chartLabels = ['Consumed'];
+        chartColors = ['#ef4444'];
+        if (consumed == goal) chartColors = ['#22c55e'];
     } else {
         chartData = [consumed, remaining];
         chartLabels = ['Consumed', 'Remaining'];
-        chartColors = ['#2563eb', '#a5b4fc']; // Lighter blue for remaining
+        chartColors = ['#3b82f6', '#93c5fd'];
     }
 
-    new Chart(document.getElementById('caloriePie').getContext('2d'), {
+    // Chart configuration
+    const chartConfig = {
         type: 'doughnut',
         data: {
             labels: chartLabels,
             datasets: [{
                 data: chartData,
                 backgroundColor: chartColors,
-                borderWidth: 0
+                borderColor: '#1f2937',
+                borderWidth: 2,
+                hoverOffset: 4
             }]
         },
         options: {
+            responsive: true,
+            maintainAspectRatio: false,
             cutout: '75%',
             plugins: {
                 legend: { display: false },
                 tooltip: {
+                    enabled: goal > 0,
                     callbacks: {
                         label: function(context) {
-                            if (consumed === 0) return "No calories consumed";
+                            if (goal <= 0) return "Calorie goal not set.";
                             return context.label + ': ' + context.parsed + ' kcal';
                         }
                     }
                 }
             }
         }
-    });
+    };
 
-    // Fetch AI analysis asynchronously (AJAX)
-    fetch('/api/ai-analysis')
-        .then(response => response.json())
-        .then(data => {
-            const loadingDiv = document.getElementById('aiAnalysisLoading');
-            const contentDiv = document.getElementById('aiAnalysisContent');
-            const box = document.getElementById('aiAnalysisBox');
-            contentDiv.innerHTML = marked.parse(data.analysis);
+    // Initialize charts
+    const mobileCtx = document.getElementById('caloriePie')?.getContext('2d');
+    const desktopCtx = document.getElementById('caloriePixPC')?.getContext('2d');
+    
+    if (mobileCtx) new Chart(mobileCtx, chartConfig);
+    if (desktopCtx) new Chart(desktopCtx, chartConfig);
 
-            // Animate: fade out loading, fade in content, expand box
-            loadingDiv.classList.add('opacity-0');
-            setTimeout(() => {
-                loadingDiv.classList.add('hidden');
-                contentDiv.classList.remove('hidden');
-                contentDiv.classList.add('opacity-0');
-                // Expand box
-                box.style.maxHeight = "1200px";
-                // Fade in content
+    // AI Analysis functionality
+    function initializeAIAnalysis(boxId, loadingId, contentId, expandBtnId = null) {
+        const aiAnalysisBox = document.getElementById(boxId);
+        const aiAnalysisLoading = document.getElementById(loadingId);
+        const aiAnalysisContent = document.getElementById(contentId);
+        const expandBtn = expandBtnId ? document.getElementById(expandBtnId) : null;
+
+        if (!aiAnalysisBox || !aiAnalysisLoading || !aiAnalysisContent) return;
+
+        fetch('/api/ai-analysis')
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.json();
+            })
+            .then(data => {
+                const analysisText = data.analysis || "No analysis available.";
+                aiAnalysisContent.innerHTML = marked.parse(analysisText);
+
+                // Fade out loading
+                aiAnalysisLoading.style.opacity = '0';
                 setTimeout(() => {
-                    contentDiv.classList.remove('opacity-0');
-                    contentDiv.classList.add('transition-opacity', 'duration-700');
-                }, 100);
-            }, 400);
-        })
-        .catch(() => {
-            document.getElementById('aiAnalysisLoading').innerText = "Failed to load analysis.";
-        });
+                    aiAnalysisLoading.classList.add('hidden');
+                    aiAnalysisContent.classList.remove('hidden');
+                    aiAnalysisContent.style.opacity = '0';
+                    
+                    // Expand box
+                    const isMobile = window.innerWidth < 768;
+                    if (isMobile) {
+                        aiAnalysisBox.style.maxHeight = "250px";
+                        // Show expand button for mobile
+                        if (expandBtn) {
+                            expandBtn.classList.remove('hidden');
+                            let isExpanded = false;
+                            expandBtn.addEventListener('click', function() {
+                                if (isExpanded) {
+                                    aiAnalysisBox.style.maxHeight = "250px";
+                                    document.getElementById('expandText').textContent = 'Read more';
+                                    document.getElementById('expandIcon').style.transform = 'rotate(0deg)';
+                                } else {
+                                    aiAnalysisBox.style.maxHeight = "none";
+                                    document.getElementById('expandText').textContent = 'Read less';
+                                    document.getElementById('expandIcon').style.transform = 'rotate(180deg)';
+                                }
+                                isExpanded = !isExpanded;
+                            });
+                        }
+                    } else {
+                        aiAnalysisBox.style.maxHeight = "none";
+                    }
+
+                    setTimeout(() => {
+                        aiAnalysisContent.style.opacity = '1';
+                    }, 50);
+                }, 300);
+            })
+            .catch((error) => {
+                console.error("AI Analysis Error:", error);
+                aiAnalysisLoading.innerHTML = "<span class='text-red-400 text-sm'>Failed to load analysis.</span>";
+            });
+    }
+
+    // Initialize AI analysis for both mobile and desktop
+    initializeAIAnalysis('aiAnalysisBox', 'aiAnalysisLoading', 'aiAnalysisContent', 'expandAnalysisBtn');
+    initializeAIAnalysis('aiAnalysisBoxPC', 'aiAnalysisLoadingPC', 'aiAnalysisContentPC');
 });
 </script>
 {% endblock %}
