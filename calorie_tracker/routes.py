@@ -12,6 +12,10 @@ from flask import (
 )
 from werkzeug.utils import secure_filename
 
+# Import Pillow and pillow-heif
+from PIL import Image
+import pillow_heif
+
 from calorie_tracker import (
     app, allowed_file, cleanup_uploads, config, db, bcrypt, login_manager, mail
 )
@@ -39,9 +43,15 @@ from calorie_tracker import google_bp
 
 openai.api_key=config.OPENAI_API_KEY
 
-def read_image_base64(image_path):
-    with open(image_path, "rb") as image_file:
-        return base64.b64encode(image_file.read()).decode('utf-8')
+# Ensure pillow-heif is registered (usually automatic, but can be explicit)
+pillow_heif.register_heif_opener()
+
+def read_image_base64(image_path_or_bytes, is_bytes=False, original_extension=".jpg"):
+    if is_bytes:
+        return base64.b64encode(image_path_or_bytes).decode('utf-8')
+    else:
+        with open(image_path_or_bytes, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode('utf-8')
 
 @app.before_request
 def require_login():
@@ -271,40 +281,90 @@ def custom_calories():
         if file.filename == '':
             flash('No selected file', 'error')
             return redirect(url_for('custom_calories'))
+        
         if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
+            original_filename = secure_filename(file.filename)
+            _, extension = os.path.splitext(original_filename)
+            extension = extension.lower() # Ensure consistent case
+
+            if not extension:
+                flash('File has no extension.', 'error')
+                return redirect(url_for('custom_calories'))
+
             dt_now = dt.now().strftime("%Y%m%d%H%M%S%f")
-            filename = dt_now + ".jpg"
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(file_path)
+            
+            # For HEIC, we'll convert to PNG for processing and storage consistency
+            # The final saved file will be PNG if original was HEIC
+            processing_extension = ".png" if extension == ".heic" else extension
+            new_filename = dt_now + processing_extension
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], new_filename)
 
-            # Process the image
-            img = cv2.imread(file_path)
-            if img is not None:
-                # Convert image to Base64
-                image_base64 = read_image_base64(file_path)
+            img_for_cv = None
+            image_bytes_for_base64 = None
+            mime_type_for_openai = "image/png" # Default to PNG after conversion
 
-                try:
+            try:
+                if extension == ".heic":
+                    # Read HEIC using pillow-heif
+                    heif_file = pillow_heif.read_heif(file)
+                    img_pil = Image.frombytes(
+                        heif_file.mode,
+                        heif_file.size,
+                        heif_file.data,
+                        "raw",
+                    )
+                    # Convert PIL image to an OpenCV compatible format (NumPy array)
+                    # And save as PNG
+                    img_pil.save(file_path, format="PNG") # Save the converted file as PNG
+                    
+                    # For OpenCV processing if still needed (though we might not need cv2.imread anymore)
+                    # img_for_cv = cv2.cvtColor(np.array(img_pil), cv2.COLOR_RGB2BGR) # If you need BGR for OpenCV
+                    
+                    # For base64 encoding, get PNG bytes
+                    with open(file_path, "rb") as f_png:
+                        image_bytes_for_base64 = f_png.read()
+                    mime_type_for_openai = "image/png"
+
+                else: # For JPG, PNG, JPEG
+                    file.save(file_path)
+                    # img_for_cv = cv2.imread(file_path) # If you still need OpenCV object
+                    with open(file_path, "rb") as f_img:
+                        image_bytes_for_base64 = f_img.read()
+                    
+                    if extension == ".png":
+                        mime_type_for_openai = "image/png"
+                    elif extension in [".jpg", ".jpeg"]:
+                        mime_type_for_openai = "image/jpeg"
+                    else: # Fallback, though allowed_extensions should limit this
+                        mime_type_for_openai = "application/octet-stream"
+
+
+                if image_bytes_for_base64:
+                    image_base64 = base64.b64encode(image_bytes_for_base64).decode('utf-8')
 
                     # Prepare GPT-4 Vision request
-                    response =  openai.responses.create(
-                        model="gpt-4o-mini",
-                        input=[
+                    response = openai.chat.completions.create( 
+                        model="gpt-4o-mini", 
+                        messages=[ 
                             {
                                 "role": "user",
                                 "content": [
-                                    {"type": "input_text", "text": "Please analyze this image and provide the calorie count. The first integer in the response should be the calorie count. You should always start with the phrase 'The food item you uploaded is name' Replace name with the actual food name."},
-                                    {"type": "input_text", "text": "Please provide the calorie count in kcal."},
-                                    {"type": "input_text", "text": "Dont provide any unrelated information."},
-                                    {"type": "input_text", "text": "Dont say anything like you cant know calories for sure just provide the best guess."},
-                                    {"type": "input_image", "image_url": f"data:image/png;base64,{image_base64}"},
+                                    {"type": "text", "text": "Please analyze this image and provide the calorie count. The first integer in the response should be the calorie count. You should always start with the phrase 'The food item you uploaded is name' Replace name with the actual food name."},
+                                    {"type": "text", "text": "Please provide the calorie count in kcal."},
+                                    {"type": "text", "text": "Dont provide any unrelated information."},
+                                    {"type": "text", "text": "Dont say anything like you cant know calories for sure just provide the best guess."},
+                                    {
+                                        "type": "image_url",
+                                        "image_url": {
+                                            "url": f"data:{mime_type_for_openai};base64,{image_base64}"
+                                        }
+                                    },
                                 ],
                             }
                         ],
                         temperature=0,
                     )
-
-                    ai_result = response.output_text
+                    ai_result = response.choices[0].message.content 
                     # Extract calorie value (first integer found in the response)
                     match = re.search(r'(\d+)\s*(?:kcal|calories|calorie)?', ai_result, re.IGNORECASE)
                     calories = int(match.group(1)) if match else None
@@ -314,14 +374,20 @@ def custom_calories():
                     food_name = name_match.group(1).strip() if name_match else "Unknown"
 
                     print(f"Food: {food_name}, Calories: {calories}")
-                except:
-                    ai_result = "Some error occured try again"
-                    calories = None
-                    food_name = "Unknown"
+                    # Pass the path of the (potentially converted) file to the template
+                    return render_template('custom_calories.html', img_path=new_filename, ai_result=ai_result, calories=calories, food_name=food_name)
+                else:
+                    flash('Could not process image.', 'error')
+                    return redirect(url_for('custom_calories'))
 
-                return render_template('custom_calories.html', img_path=file_path, ai_result=ai_result, calories=calories, food_name=food_name)
-        flash('Invalid file type', 'error')
-        return redirect(url_for('custom_calories'))
+            except Exception as e:
+                app.logger.error(f"Error processing uploaded file: {e}")
+                flash(f'Error processing file: {str(e)}', 'error')
+                return redirect(url_for('custom_calories'))
+        else: # This 'else' corresponds to 'if file and allowed_file(file.filename)'
+            flash('Invalid file type. Allowed types are: png, jpg, jpeg, heic.', 'error') # More specific message
+            return redirect(url_for('custom_calories'))
+
     # GET request
     cleanup_uploads(app.config['UPLOAD_FOLDER'], max_age_seconds=86400)
     return render_template('custom_calories.html')
