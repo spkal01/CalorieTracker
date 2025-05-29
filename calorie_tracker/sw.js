@@ -1,4 +1,4 @@
-const CACHE_NAME = 'calorie-tracker-v12';
+const CACHE_NAME = 'calorie-tracker-v1.1';
 const OFFLINE_URL = '/offline';
 
 // Install: cache the offline page and essential assets

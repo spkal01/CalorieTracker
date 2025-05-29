@@ -46,6 +46,26 @@
       ]
     }
   ],
+  "widgets": [
+    {
+      "name": "Calorie Progress",
+      "short_name": "Calories",
+      "description": "View your daily calorie progress at a glance",
+      "tag": "calorie-progress",
+      "template": "calorie-widget",
+      "ms_ac_template": "/widget-template",
+      "data": "/api/widget-data",
+      "auth": true,
+      "update": 300,
+      "icons": [
+        {
+          "src": "/static/images/favicon.png",
+          "sizes": "72x72",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
   "categories": [
     "fitness",
     "health",

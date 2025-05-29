@@ -1201,3 +1201,40 @@ def serve_assetlinks():
     return send_from_directory(os.path.join(app.static_folder, '.well-known'),
                                'assetlinks.json',
                                mimetype='application/json')
+
+@app.route('/widget-template')
+def widget_template():
+    """Template for the Android widget"""
+    return render_template('widget_template.html')
+
+@app.route('/api/widget-data')
+@login_required
+def widget_data():
+    """API endpoint to provide widget data"""
+    try:
+        today = dt.now().strftime("%Y-%m-%d")
+        entry = SavedCalories.query.filter_by(date=today, user_id=current_user.id).first()
+        calories_consumed = sum(f.calories for f in entry.food_items) if entry else 0
+        daily_calorie_goal = current_user.daily_calorie_goal or 2000
+        
+        # Calculate progress percentage
+        progress_percentage = min(100, (calories_consumed / daily_calorie_goal) * 100) if daily_calorie_goal > 0 else 0
+        
+        return jsonify({
+            "calories_consumed": calories_consumed,
+            "daily_calorie_goal": daily_calorie_goal,
+            "remaining": max(0, daily_calorie_goal - calories_consumed),
+            "progress_percentage": round(progress_percentage, 1),
+            "status": "on_track" if calories_consumed <= daily_calorie_goal else "over_goal",
+            "last_updated": dt.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({
+            "error": "Unable to fetch calorie data",
+            "calories_consumed": 0,
+            "daily_calorie_goal": 2000,
+            "remaining": 2000,
+            "progress_percentage": 0,
+            "status": "error",
+            "last_updated": dt.now().isoformat()
+        }), 500
