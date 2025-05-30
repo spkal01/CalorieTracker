@@ -5,7 +5,7 @@ import base64
 import cv2
 import secrets
 import json
-from datetime import datetime as dt
+from datetime import datetime as dt, timedelta 
 import threading
 from flask import (
     flash, render_template, request, redirect, url_for, session, jsonify, send_from_directory
@@ -21,11 +21,10 @@ from calorie_tracker import (
 )
 
 from calorie_tracker.models import (
-    User, FoodItem, SavedCalories, # Keep existing
+    User, FoodItem, SavedCalories,
     UserDietDay, Meal, MealItem, DayOfWeekEnum, MealTypeEnum # Add new models and enums
 )
 
-from flask_sqlalchemy import SQLAlchemy
 from flask_login import (
     login_user, logout_user, login_required, current_user
 )
@@ -39,12 +38,61 @@ from flask_dance.consumer import oauth_authorized
 from calorie_tracker import google_bp
 
 
-# Initialize SQLAlchemy
-
-openai.api_key=config.OPENAI_API_KEY
-
 # Ensure pillow-heif is registered (usually automatic, but can be explicit)
 pillow_heif.register_heif_opener()
+
+# Store the current key index, start with the primary key
+current_api_key_index = 0
+# Store the time of the last reset
+last_key_reset_time = None
+
+def call_openai_api_with_fallback(**kwargs):
+    global current_api_key_index, last_key_reset_time # Add last_key_reset_time
+    keys = getattr(config, 'OPENAI_API_KEYS', [])
+    if not keys:
+        app.logger.error("OPENAI_API_KEYS not configured or empty in config.py")
+        raise ValueError("OPENAI_API_KEYS not configured or empty in config.py")
+
+    now = dt.now()
+
+    # Check if it's time to reset the API key index
+    if last_key_reset_time is None:
+        last_key_reset_time = now
+        app.logger.info(f"Initializing last_key_reset_time to {last_key_reset_time}")
+    elif now - last_key_reset_time >= timedelta(hours=24):
+        current_api_key_index = 0
+        last_key_reset_time = now
+        app.logger.info(f"Reset OpenAI API key index to 0. New reset time: {last_key_reset_time}")
+
+    num_keys = len(keys)
+    
+    for i in range(num_keys):
+        key_to_try_index = (current_api_key_index + i) % num_keys
+        api_key_to_use = keys[key_to_try_index]
+        
+        try:
+            app.logger.info(f"Attempting OpenAI API call with key index {key_to_try_index}")
+            # Pass the api_key directly to the create method
+            response = openai.chat.completions.create(api_key=api_key_to_use, **kwargs)
+            
+            current_api_key_index = key_to_try_index
+            app.logger.info(f"OpenAI API call successful with key index {key_to_try_index}.")
+            return response
+        except openai.APIConnectionError as e:
+            app.logger.warning(f"OpenAI APIConnectionError with key index {key_to_try_index}: {e}")
+        except openai.RateLimitError as e:
+            app.logger.warning(f"OpenAI RateLimitError with key index {key_to_try_index}: {e}. Trying next key.")
+        except openai.AuthenticationError as e:
+            app.logger.error(f"OpenAI AuthenticationError with key index {key_to_try_index}: {e}. This key is invalid. Trying next key.")
+        except openai.APIStatusError as e:
+            app.logger.error(f"OpenAI APIStatusError with key index {key_to_try_index} (Status: {e.status_code}): {e.message}")
+        except Exception as e:
+            app.logger.error(f"Unexpected error during OpenAI API call with key index {key_to_try_index}: {e}")
+            if i == num_keys - 1: # If this was the last key
+                raise e 
+
+    app.logger.error("All OpenAI API keys failed.")
+    raise Exception("All OpenAI API keys failed after trying all available keys.")
 
 def read_image_base64(image_path_or_bytes, is_bytes=False, original_extension=".jpg"):
     if is_bytes:
@@ -343,7 +391,7 @@ def custom_calories():
                     image_base64 = base64.b64encode(image_bytes_for_base64).decode('utf-8')
 
                     # Prepare GPT-4 Vision request
-                    response = openai.chat.completions.create( 
+                    response = call_openai_api_with_fallback( 
                         model="gpt-4o-mini", 
                         messages=[ 
                             {
@@ -652,7 +700,7 @@ def ai_reccomend_daily_calories():
         return redirect(url_for('settings'))
 
 
-    response = openai.chat.completions.create(
+    response = call_openai_api_with_fallback(
         model="gpt-4o-mini",
         messages=[
             {
@@ -732,7 +780,7 @@ def get_ai_analysis():
         "Do not show the age weight height and gender in the response.\n"
     )
 
-    response = openai.chat.completions.create(
+    response = call_openai_api_with_fallback(
         model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": "You are a helpful nutrition and calorie tracking assistant."},
@@ -828,7 +876,7 @@ def describe_meal():
         f"Meal description: {description}"
     )
     try:
-        response = openai.chat.completions.create(
+        response = call_openai_api_with_fallback(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "You are a helpful nutrition assistant."},
@@ -1073,7 +1121,7 @@ def generate_and_store_diet_plan_logic(user_id, describe_diet='', generation_tok
         
         ai_generated_plan_str = None
         try:
-            response = openai.chat.completions.create(
+            response = call_openai_api_with_fallback(
                 model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": "You are a diet planning assistant that outputs JSON."},
