@@ -47,7 +47,7 @@ current_api_key_index = 0
 last_key_reset_time = None
 
 def call_openai_api_with_fallback(**kwargs):
-    global current_api_key_index, last_key_reset_time # Add last_key_reset_time
+    global current_api_key_index, last_key_reset_time
     keys = getattr(config, 'OPENAI_API_KEYS', [])
     if not keys:
         app.logger.error("OPENAI_API_KEYS not configured or empty in config.py")
@@ -70,10 +70,16 @@ def call_openai_api_with_fallback(**kwargs):
         key_to_try_index = (current_api_key_index + i) % num_keys
         api_key_to_use = keys[key_to_try_index]
         
+        if not api_key_to_use: # Skip if a key is an empty string
+            app.logger.warning(f"Skipping empty API key at index {key_to_try_index}.")
+            continue
+
         try:
             app.logger.info(f"Attempting OpenAI API call with key index {key_to_try_index}")
-            # Pass the api_key directly to the create method
-            response = openai.chat.completions.create(api_key=api_key_to_use, **kwargs)
+            
+            # Create a new client instance for each attempt with the specific API key
+            client = openai.OpenAI(api_key=api_key_to_use)
+            response = client.chat.completions.create(**kwargs) # Use the new client instance
             
             current_api_key_index = key_to_try_index
             app.logger.info(f"OpenAI API call successful with key index {key_to_try_index}.")
