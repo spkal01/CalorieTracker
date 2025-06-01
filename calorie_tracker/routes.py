@@ -1,3 +1,4 @@
+import hashlib
 import os
 import re
 import random
@@ -8,7 +9,7 @@ import json
 from datetime import datetime as dt, timedelta 
 import threading
 from flask import (
-    flash, render_template, request, redirect, url_for, session, jsonify, send_from_directory
+    flash, render_template, request, redirect, url_for, session, jsonify, send_from_directory, g
 )
 from werkzeug.utils import secure_filename
 
@@ -705,7 +706,6 @@ def ai_reccomend_daily_calories():
         flash('Please provide your age, weight, and height in settings.', 'warning')
         return redirect(url_for('settings'))
 
-
     response = call_openai_api_with_fallback(
         model="gpt-4o-mini",
         messages=[
@@ -733,7 +733,8 @@ def ai_reccomend_daily_calories():
                 ),
             },
         ],
-        temperature=0
+        temperature=0,
+        user=get_hashed_user_id()
     )
 
     return response.choices[0].message.content
@@ -793,7 +794,8 @@ def get_ai_analysis():
             {"role": "user", "content": prompt},
         ],
         temperature=0.7,
-        max_tokens=400
+        max_tokens=400,
+        user=get_hashed_user_id()
     )
     analysis = response.choices[0].message.content
 
@@ -889,7 +891,8 @@ def describe_meal():
                 {"role": "user", "content": prompt}
             ],
             max_tokens=300,
-            temperature=0.7
+            temperature=0.7,
+            user=get_hashed_user_id()
         )
         ai_content = response.choices[0].message.content.strip()
         # Optionally log/print for debugging
@@ -1133,6 +1136,7 @@ def generate_and_store_diet_plan_logic(user_id, describe_diet='', generation_tok
                     {"role": "system", "content": "You are a diet planning assistant that outputs JSON."},
                     {"role": "user", "content": prompt}
                 ],
+                user=get_hashed_user_id(),
                 response_format={"type": "json_object"}
             )
             ai_generated_plan_str = response.choices[0].message.content
@@ -1358,3 +1362,9 @@ def widget_data():
             "status": "error",
             "last_updated": dt.now().isoformat()
         }), 500
+
+def get_hashed_user_id():
+    """Cache the hashed user ID in Flask's session context (g) for the current user."""
+    if not hasattr(g, 'hashed_user_id'):
+        g.hashed_user_id = hashlib.md5(str(current_user.id).encode('utf-8')).hexdigest()
+    return g.hashed_user_id
