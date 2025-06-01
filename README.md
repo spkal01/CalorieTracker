@@ -18,3 +18,9 @@ Track your daily calories, analyze meals with AI, set goals, and get motivationa
 
 ---
 
+## Acknowledgements
+
+- Icons used in this project are from [Flaticon](https://www.flaticon.com/). Full credit goes to their respective creators.
+
+---
+
