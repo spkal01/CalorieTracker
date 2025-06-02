@@ -44,6 +44,16 @@ class User(db.Model, UserMixin):
     # New fields for tracking diet plan generation status
     active_diet_generation_token = db.Column(db.String(32), nullable=True, index=True)
     last_diet_generation_status = db.Column(db.String(20), nullable=True) # e.g., "pending", "completed", "failed"
+    
+    # Push notification preferences
+    notifications_enabled = db.Column(db.Boolean, default=False)
+    notify_meal_reminder = db.Column(db.Boolean, default=True)
+    notify_goal_achievement = db.Column(db.Boolean, default=True)
+    reminder_time = db.Column(db.String(5), default="12:00")  # Format: "HH:MM"
+    timezone = db.Column(db.String(50), default="UTC")  # Store timezone for reminders
+    
+    # Relationship to push subscriptions
+    push_subscriptions = db.relationship('PushSubscription', backref='user', lazy=True, cascade="all, delete-orphan")
 
 # Add these Enums
 class DayOfWeekEnum(enum.Enum):
@@ -105,3 +115,18 @@ class MealItem(db.Model):
     def __repr__(self):
         return f"<MealItem Name: {self.food_name}>"
 
+class PushSubscription(db.Model):
+    __tablename__ = 'push_subscription'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    endpoint = db.Column(db.String(500), nullable=False)
+    p256dh = db.Column(db.String(500), nullable=False)
+    auth = db.Column(db.String(500), nullable=False)
+    user_agent = db.Column(db.String(500), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+    
+    # Ensure a user has only one subscription per endpoint
+    __table_args__ = (db.UniqueConstraint('user_id', 'endpoint', name='_user_endpoint_uc'),)
+    
+    def __repr__(self):
+        return f"<PushSubscription UserID: {self.user_id} Endpoint: {self.endpoint[:30]}...>"

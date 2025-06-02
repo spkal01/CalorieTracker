@@ -37,6 +37,11 @@ app.config['MAIL_USE_TLS'] = config.MAIL_USE_TLS
 app.config['MAIL_USE_SSL'] = config.MAIL_USE_SSL
 app.config['MAIL_DEFAULT_SENDER'] = config.MAIL_DEFAULT_SENDER
 
+# Push notification configuration
+app.config['VAPID_PUBLIC_KEY'] = os.environ.get('VAPID_PUBLIC_KEY', config.VAPID_PUBLIC_KEY)
+app.config['VAPID_PRIVATE_KEY'] = os.environ.get('VAPID_PRIVATE_KEY', config.VAPID_PRIVATE_KEY)
+app.config['VAPID_CLAIM_EMAIL'] = os.environ.get('VAPID_CLAIM_EMAIL', config.VAPID_CLAIM_EMAIL)
+
 # Ensure secure cookies and proxy support for OAuth on production
 app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = "Lax"
@@ -63,7 +68,7 @@ google_bp = make_google_blueprint(
         "https://www.googleapis.com/auth/userinfo.profile",
         "https://www.googleapis.com/auth/userinfo.email",
     ],
-)  # use OIDC scopes to match Google’s current API
+)  # use OIDC scopes to match Google's current API
 app.register_blueprint(google_bp, url_prefix='/login')
 
 # Utility function to check allowed file types
@@ -83,7 +88,12 @@ def cleanup_uploads(folder, max_age_seconds):
 from calorie_tracker.routes import create_admin_user
 from calorie_tracker.models import User
 from calorie_tracker.admin_views import AdminUser, FileAdminView, AdminView
-admin = Admin(app, name='Calorie Tracker Admin', template_mode='bootstrap3', index_view=AdminView())
+
+# Register push notification blueprint
+from calorie_tracker.push_routes import push_notification_bp
+app.register_blueprint(push_notification_bp)
+
+admin = Admin(app, name='Calorie Tracker Admin', template_mode='bootstrap4', index_view=AdminView())
 admin.add_view(AdminUser(User, db.session, name='Users'))
 admin.add_view(FileAdminView(UPLOAD_FOLDER, name='Uploads'))
 #with app.app_context():

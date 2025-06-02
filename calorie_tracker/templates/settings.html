@@ -2,6 +2,7 @@
 
 {% block content %}
 <div class="flex flex-col items-center justify-center min-h-[60vh] px-2">
+    <div id="notification-prompt-container"></div>
     <div class="w-full max-w-md bg-zinc-800 border border-zinc-700 rounded-lg shadow p-4 sm:p-6">
         <h2 class="text-xl sm:text-2xl font-bold text-zinc-100 mb-4 sm:mb-6 text-center">Settings</h2>
         <form method="POST" class="space-y-4">
@@ -57,6 +58,62 @@
                     {% endif %}
                 </div>
             </div>
+            
+            <!-- Notification Settings Section -->
+            <div class="mt-6 border-t border-zinc-700 pt-4">
+                <h3 class="text-lg font-semibold text-zinc-100 mb-3">Notification Settings</h3>
+                
+                <div class="flex items-center justify-between mb-3">
+                    <label for="notifications_enabled" class="text-zinc-300 text-sm">Enable Notifications</label>
+                    <div class="relative inline-block w-12 align-middle select-none">
+                        <input type="checkbox" id="notifications_enabled" name="notifications_enabled" 
+                               class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                               {% if notifications_enabled %}checked{% endif %} />
+                        <label for="notifications_enabled" 
+                               class="toggle-label block overflow-hidden h-6 rounded-full bg-zinc-700 cursor-pointer"></label>
+                    </div>
+                </div>
+                
+                <div id="notification-options" class="space-y-3 {% if not notifications_enabled %}opacity-50{% endif %}">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="notify_meal_reminder" name="notify_meal_reminder" 
+                               class="w-4 h-4 bg-zinc-900 border-zinc-700 rounded"
+                               {% if notify_meal_reminder %}checked{% endif %} 
+                               {% if not notifications_enabled %}disabled{% endif %} />
+                        <label for="notify_meal_reminder" class="ml-2 text-zinc-300 text-sm">Daily meal logging reminders</label>
+                    </div>
+                    
+                    <div class="flex items-center">
+                        <input type="checkbox" id="notify_goal_achievement" name="notify_goal_achievement" 
+                               class="w-4 h-4 bg-zinc-900 border-zinc-700 rounded"
+                               {% if notify_goal_achievement %}checked{% endif %} 
+                               {% if not notifications_enabled %}disabled{% endif %} />
+                        <label for="notify_goal_achievement" class="ml-2 text-zinc-300 text-sm">Goal achievement alerts</label>
+                    </div>
+                    
+                    <div class="flex items-center">
+                        <input type="checkbox" id="notify_updates" name="notify_updates" 
+                               class="w-4 h-4 bg-zinc-900 border-zinc-700 rounded"
+                               {% if notify_updates %}checked{% endif %} 
+                               {% if not notifications_enabled %}disabled{% endif %} />
+                        <label for="notify_updates" class="ml-2 text-zinc-300 text-sm">App updates and new features</label>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <label for="reminder_time" class="block text-zinc-300 mb-1 text-sm">Reminder Time</label>
+                        <input type="time" id="reminder_time" name="reminder_time"
+                               value="{{ reminder_time if reminder_time else '12:00' }}"
+                               class="w-full bg-zinc-900 border border-zinc-700 text-zinc-100 rounded px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               {% if not notifications_enabled %}disabled{% endif %} />
+                        <p class="text-zinc-400 text-xs mt-1">Time for daily reminders</p>
+                    </div>
+                </div>
+                
+                <div id="notification-status" class="mt-3 text-sm">
+                    <!-- This will be populated by JavaScript -->
+                </div>
+            </div>
+            
             <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded transition text-sm">
                 Save Settings
             </button>
@@ -94,10 +151,164 @@
         </div>
     </div>
 </div>
+
+<style>
+/* Toggle Switch Styles */
+.toggle-checkbox:checked {
+    right: 0;
+    border-color: #2563eb;
+}
+.toggle-checkbox:checked + .toggle-label {
+    background-color: #3b82f6;
+}
+.toggle-label {
+    transition: background-color 0.3s ease;
+}
+.toggle-checkbox {
+    right: 6px;
+    transition: all 0.3s ease;
+    z-index: 1;
+}
+</style>
+
+<script src="{{ url_for('static', filename='js/push-notifications.js') }}"></script>
 <script>
     // Show loading spinner on AI suggestion form submit
     document.getElementById('ai-suggest-form').addEventListener('submit', function() {
         document.getElementById('ai-loading').classList.remove('hidden');
+    });
+    
+    // Notification settings toggle
+    const notificationsEnabled = document.getElementById('notifications_enabled');
+    const notificationOptions = document.getElementById('notification-options');
+    const notificationInputs = notificationOptions.querySelectorAll('input');
+    const notificationStatus = document.getElementById('notification-status');
+    
+    // Initialize push notification manager
+    let pushManager;
+    
+    // Function to update notification status message
+    function updateNotificationStatus() {
+        if (!('Notification' in window)) {
+            notificationStatus.innerHTML = '<span class="text-red-400">Your browser does not support notifications</span>';
+            notificationsEnabled.disabled = true;
+            return;
+        }
+        
+        const permission = Notification.permission;
+        
+        if (permission === 'denied') {
+            notificationStatus.innerHTML = '<span class="text-red-400">Notifications blocked. Please enable in browser settings.</span>';
+        } else if (permission === 'granted') {
+            notificationStatus.innerHTML = '<span class="text-green-400">Notifications enabled</span>';
+        } else {
+            notificationStatus.innerHTML = '<span class="text-yellow-400">Notification permission required</span>';
+        }
+    }
+    
+    // Function to toggle notification options
+    function toggleNotificationOptions() {
+        if (notificationsEnabled.checked) {
+            notificationOptions.classList.remove('opacity-50');
+            notificationInputs.forEach(input => {
+                input.disabled = false;
+            });
+            
+            // Request permission if not already granted
+            if (Notification.permission === 'default') {
+                // Show soft permission prompt
+                pushManager.showSoftPermissionPrompt('notification-prompt-container')
+                    .then(userChoice => {
+                        if (userChoice) {
+                            pushManager.requestNotificationPermission()
+                                .then(permission => {
+                                    updateNotificationStatus();
+                                    
+                                    if (permission === 'granted') {
+                                        // Subscribe to push notifications
+                                        pushManager.subscribe()
+                                            .then(subscription => {
+                                                if (subscription) {
+                                                    console.log('Successfully subscribed to push notifications');
+                                                }
+                                            });
+                                    }
+                                });
+                        }
+                    });
+            } else if (Notification.permission === 'granted' && !pushManager.isSubscribed) {
+                // Subscribe if permission is already granted but not subscribed
+                pushManager.subscribe()
+                    .then(subscription => {
+                        if (subscription) {
+                            console.log('Successfully subscribed to push notifications');
+                        }
+                    });
+            }
+        } else {
+            notificationOptions.classList.add('opacity-50');
+            notificationInputs.forEach(input => {
+                input.disabled = true;
+            });
+            
+            // Unsubscribe if currently subscribed
+            if (pushManager.isSubscribed) {
+                pushManager.unsubscribe()
+                    .then(result => {
+                        if (result) {
+                            console.log('Successfully unsubscribed from push notifications');
+                        }
+                    });
+            }
+        }
+    }
+    
+    // Initialize when DOM is loaded
+    document.addEventListener('DOMContentLoaded', async function() {
+        // Initialize push notification manager
+        pushManager = window.pushNotificationManager;
+        
+        // Fetch VAPID public key from server
+        try {
+            const response = await fetch('/api/vapid-public-key');
+            if (response.ok) {
+                const data = await response.json();
+                
+                // Initialize push manager with VAPID public key
+                const initialized = await pushManager.initialize(data.publicKey);
+                
+                if (initialized) {
+                    // Update UI based on subscription status
+                    notificationsEnabled.checked = pushManager.isSubscribed;
+                    toggleNotificationOptions();
+                }
+                
+                // Update notification status message
+                updateNotificationStatus();
+                
+                // Add event listener for toggle
+                notificationsEnabled.addEventListener('change', toggleNotificationOptions);
+            }
+        } catch (error) {
+            console.error('Error initializing push notifications:', error);
+            notificationStatus.innerHTML = '<span class="text-red-400">Error initializing notifications</span>';
+        }
+        
+        // Save notification preferences when form is submitted
+        document.querySelector('form').addEventListener('submit', async function(event) {
+            if (notificationsEnabled.checked && Notification.permission === 'granted') {
+                // Collect notification preferences
+                const preferences = {
+                    enabled: notificationsEnabled.checked,
+                    meal_reminder: document.getElementById('notify_meal_reminder').checked,
+                    goal_achievement: document.getElementById('notify_goal_achievement').checked,
+                    reminder_time: document.getElementById('reminder_time').value
+                };
+                
+                // Update preferences on server
+                await pushManager.updateNotificationPreferences(preferences);
+            }
+        });
     });
 </script>
 {% endblock %}

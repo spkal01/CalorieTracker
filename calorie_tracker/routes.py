@@ -6,13 +6,15 @@ import base64
 import cv2
 import secrets
 import json
+import geoip2.database
+import pytz
 from datetime import datetime as dt, timedelta 
 import threading
 from flask import (
     flash, render_template, request, redirect, url_for, session, jsonify, send_from_directory, g
 )
 from werkzeug.utils import secure_filename
-
+from pywebpush import webpush, WebPushException
 # Import Pillow and pillow-heif
 from PIL import Image
 import pillow_heif
@@ -23,7 +25,7 @@ from calorie_tracker import (
 
 from calorie_tracker.models import (
     User, FoodItem, SavedCalories,
-    UserDietDay, Meal, MealItem, DayOfWeekEnum, MealTypeEnum # Add new models and enums
+    UserDietDay, Meal, MealItem, DayOfWeekEnum, MealTypeEnum, PushSubscription,
 )
 
 from flask_login import (
@@ -307,17 +309,28 @@ def saved():
     if request.method == 'POST':
         date = request.form.get('date')
         food_name = request.form.get('food_name')
-        food_calories = request.form.get('food_calories')
-        if date and food_name and food_calories:
-            entry = SavedCalories.query.filter_by(date=date, user_id=current_user.id).first()
-            if not entry:
-                entry = SavedCalories(date=date, user_id=current_user.id)
-                db.session.add(entry)
+        food_calories_str = request.form.get('food_calories')
+        if date and food_name and food_calories_str:
+            try:
+                food_calories = int(food_calories_str)
+                entry = SavedCalories.query.filter_by(date=date, user_id=current_user.id).first()
+                if not entry:
+                    entry = SavedCalories(date=date, user_id=current_user.id)
+                    db.session.add(entry)
+                    # Commit here if you need entry.id immediately, or before adding FoodItem
+                    db.session.flush() # Makes entry.id available if it's new
+
+                food = FoodItem(saved_calories_id=entry.id, name=food_name, calories=food_calories)
+                db.session.add(food)
                 db.session.commit()
-            food = FoodItem(saved_calories_id=entry.id, name=food_name, calories=int(food_calories))
-            db.session.add(food)
-            db.session.commit()
-            flash('Food item added successfully!', 'success')
+                flash('Food item added successfully!', 'success')
+                check_and_send_goal_achievement_notification(current_user, food_calories)
+            except ValueError:
+                flash('Invalid calorie amount.', 'error')
+            except Exception as e:
+                db.session.rollback()
+                app.logger.error(f"Error adding food item in /saved: {e}")
+                flash('An error occurred while adding the food item.', 'error')
         else:
             flash('Please provide date, food name, and food calories.', 'error')
     saved_data = get_saved_data()
@@ -498,45 +511,89 @@ def settings():
         if request.form.get('ai_suggest'):
             ai_suggestion = ai_reccomend_daily_calories()
         else:
-            daily_calorie_goal = request.form.get('daily_calorie_goal')
-            if daily_calorie_goal:
-                current_user.daily_calorie_goal = int(daily_calorie_goal)
-                db.session.commit()
-                flash('Daily calorie goal updated!', 'success')
-            else:
-                flash('Please provide a valid calorie goal.', 'error')
-            age = request.form.get('age')
-            weight = request.form.get('weight')
-            height = request.form.get('height')
+            # Update daily calorie goal
+            daily_calorie_goal_str = request.form.get('daily_calorie_goal')
+            if daily_calorie_goal_str:
+                try:
+                    current_user.daily_calorie_goal = int(daily_calorie_goal_str)
+                    flash('Daily calorie goal updated!', 'success')
+                except ValueError:
+                    flash('Please provide a valid number for calorie goal.', 'error')
+            
+            # Update profile information
+            age_str = request.form.get('age')
+            weight_str = request.form.get('weight')
+            height_str = request.form.get('height')
             gender = request.form.get('gender')
-            if age and weight and height and gender:
-                current_user.age = int(age)
-                current_user.weight = float(weight)
-                current_user.height = float(height)
-                current_user.gender = str(gender)
-                db.session.commit()
-                flash('Profile updated!', 'success')
-            else:
-                flash('Please provide valid age, weight, and height.', 'error')
-    return render_template(
-        'settings.html',
-        daily_calorie_goal=current_user.daily_calorie_goal,
-        age=current_user.age,
-        weight=current_user.weight,
-        height=current_user.height,
-        gender=current_user.gender,
-        ai_suggestion=ai_suggestion
-    )
+
+            profile_updated = False
+            try:
+                if age_str: current_user.age = int(age_str)
+                if weight_str: current_user.weight = float(weight_str)
+                if height_str: current_user.height = float(height_str)
+                if gender: current_user.gender = str(gender)
+                profile_updated = True # Mark if any field was processed
+            except ValueError:
+                flash('Invalid format for age, weight, or height.', 'error')
+                profile_updated = False # Reset if error
+
+            if profile_updated:
+                flash('Profile information updated!', 'success')
+
+            # Update notification preferences
+            current_user.notifications_enabled = 'notifications_enabled' in request.form
+            current_user.notify_meal_reminder = 'notify_meal_reminder' in request.form
+            current_user.notify_goal_achievement = 'notify_goal_achievement' in request.form # This is the relevant one
+            reminder_time_str = request.form.get('reminder_time')
+            if reminder_time_str:
+                current_user.reminder_time = reminder_time_str
+            
+            flash('Notification preferences updated!', 'success')
+            
+            db.session.commit() # Commit all changes together
+            return redirect(url_for('settings')) # Redirect to avoid re-POST on refresh
+    
+    # Prepare template variables
+    template_vars = {
+        'daily_calorie_goal': current_user.daily_calorie_goal,
+        'age': current_user.age,
+        'weight': current_user.weight,
+        'height': current_user.height,
+        'gender': current_user.gender,
+        'ai_suggestion': ai_suggestion
+    }
+    
+    # Add notification preferences if they exist in the user model
+    if hasattr(current_user, 'notifications_enabled'):
+        template_vars.update({
+            'notifications_enabled': getattr(current_user, 'notifications_enabled', False),
+            'notify_meal_reminder': getattr(current_user, 'notify_meal_reminder', False),
+            'notify_goal_achievement': getattr(current_user, 'notify_goal_achievement', True),
+            'reminder_time': getattr(current_user, 'reminder_time', None)
+        })
+    
+    return render_template('settings.html', **template_vars)
 
 def push_data(calories, date=dt.now().strftime("%Y-%m-%d"), food_name="Custom"):
     entry = SavedCalories.query.filter_by(date=date, user_id=current_user.id).first()
     if not entry:
         entry = SavedCalories(date=date, user_id=current_user.id)
         db.session.add(entry)
+        db.session.flush() # Ensure entry.id is available if new
+    
+    try:
+        calories_int = int(calories)
+        food = FoodItem(saved_calories_id=entry.id, name=food_name, calories=calories_int)
+        db.session.add(food)
         db.session.commit()
-    food = FoodItem(saved_calories_id=entry.id, name=food_name, calories=int(calories))
-    db.session.add(food)
-    db.session.commit()
+        check_and_send_goal_achievement_notification(current_user, calories_int)
+    except ValueError:
+        app.logger.error(f"Invalid calorie value '{calories}' in push_data for user {current_user.id}")
+        # Optionally flash a message if this function could lead to user feedback
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error in push_data for user {current_user.id}: {e}")
+
 
 @app.route('/delete/<int:entry_id>', methods=['POST'])
 @login_required
@@ -570,11 +627,15 @@ def edit_data(entry_id):
 def diet():
     today = dt.now().strftime("%Y-%m-%d")
     entry = SavedCalories.query.filter_by(date=today, user_id=current_user.id).first()
-    calories_consumed = sum(f.calories for f in entry.food_items) if entry else 0
+    calories_consumed = sum(f.calories for f in entry.food_items if f.calories is not None) if entry else 0
+    
+    # Ensure daily_calorie_goal is set, redirect to settings if not
     if current_user.daily_calorie_goal is None:
         flash('Please set your daily calorie goal in settings.', 'warning')
         return redirect(url_for('settings'))
-    daily_calorie_goal = current_user.daily_calorie_goal or 2000  # fallback value
+        
+    daily_calorie_goal = current_user.daily_calorie_goal # Already checked it's not None
+
     motivational_tip = get_motivational_tip()
 
     return render_template(
@@ -864,7 +925,7 @@ def google_logged_in(blueprint, token):
         user = User(username=email, email=email, password=password)
         db.session.add(user)
         db.session.commit()
-    login_user(user)
+    login_user(user, remember=True)
     flash("Logged in with Google!", "success")
     return False  # prevent Flask-Dance from storing OAuth token in session
 
@@ -883,84 +944,107 @@ def describe_meal():
         '[{"name": "chicken breast", "calories": 200}, {"name": "rice", "calories": 180}]\n\n'
         f"Meal description: {description}"
     )
+    foods = []
+    total_calories_from_meal = 0
     try:
         response = call_openai_api_with_fallback(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a helpful nutrition assistant."},
+                {"role": "system", "content": "You are a helpful nutrition assistant that extracts food items and calories into a strict JSON format."},
                 {"role": "user", "content": prompt}
             ],
             max_tokens=300,
-            temperature=0.7,
+            temperature=0.2,
             user=get_hashed_user_id()
         )
         ai_content = response.choices[0].message.content.strip()
-        # Optionally log/print for debugging
-        if app.debug:
-            print("AI response:", ai_content)
-        match = re.search(r'(\[.*\])', ai_content, re.DOTALL)
+        
+        # Try to find JSON array within the response
+        match = re.search(r'\[\s*\{.*\}\s*\]', ai_content, re.DOTALL)
         if match:
-            foods = json.loads(match.group(1))
+            json_str = match.group(0)
+            foods = json.loads(json_str)
+            if not isinstance(foods, list): # Ensure it's a list
+                foods = []
+                app.logger.warning(f"AI response for describe_meal (user {current_user.id}) was valid JSON but not a list: {json_str}")
         else:
-            foods = []
-            flash('Could not extract foods from AI response.', 'error')
+            app.logger.warning(f"Could not extract valid JSON array from AI response for describe_meal (user {current_user.id}). Response: {ai_content}")
+            flash('Could not extract foods from AI response. Please try rephrasing or check AI output format.', 'warning')
+            
+    except json.JSONDecodeError as e:
+        app.logger.error(f"JSONDecodeError in describe_meal for user {current_user.id}: {e}. AI content: {ai_content}")
+        flash('Error parsing food data from AI. Please try again.', 'error')
     except Exception as e:
-        if app.debug:
-            print("OpenAI/JSON error:", e)
-            foods = []
-        flash('Could not analyze meal. Please try again.', 'error')
+        app.logger.error(f"OpenAI/JSON error in describe_meal for user {current_user.id}: {e}")
+        flash('Could not analyze meal due to an unexpected error. Please try again.', 'error')
 
-    # Save each food item to the user's current day
-    today = dt.now().strftime("%Y-%m-%d")
-    entry = SavedCalories.query.filter_by(date=today, user_id=current_user.id).first()
-    if not entry:
-        entry = SavedCalories(date=today, user_id=current_user.id)
-        db.session.add(entry)
-        db.session.commit()
-    for food in foods:
-        name = food.get('name')
-        calories = food.get('calories')
-        if name and calories:
-            db.session.add(FoodItem(saved_calories_id=entry.id, name=name, calories=int(calories)))
-    db.session.commit()
     if foods:
-        flash('Meal analyzed and foods added!', 'success')
+        today = dt.now().strftime("%Y-%m-%d")
+        entry = SavedCalories.query.filter_by(date=today, user_id=current_user.id).first()
+        if not entry:
+            entry = SavedCalories(date=today, user_id=current_user.id)
+            db.session.add(entry)
+            db.session.flush() # Ensure entry.id is available
+
+        items_added_count = 0
+        for food_data in foods:
+            name = food_data.get('name')
+            calories_val = food_data.get('calories')
+            if name and calories_val is not None:
+                try:
+                    calories = int(calories_val)
+                    if calories >= 0: # Allow 0 calorie items if intended
+                        db.session.add(FoodItem(saved_calories_id=entry.id, name=str(name), calories=calories))
+                        total_calories_from_meal += calories
+                        items_added_count += 1
+                except ValueError:
+                    app.logger.warning(f"Invalid calorie value '{calories_val}' for item '{name}' in describe_meal for user {current_user.id}.")
+        
+        if items_added_count > 0:
+            db.session.commit()
+            flash(f'{items_added_count} food item(s) analyzed and added!', 'success')
+            if total_calories_from_meal > 0: # Only check if actual calories were added
+                 check_and_send_goal_achievement_notification(current_user, total_calories_from_meal)
+        elif not foods: # If initial foods list was empty or became empty
+             flash('No valid food items were extracted from the description.', 'info')
+
+
     return redirect(url_for('saved'))
 
-
 @app.route('/api/add_diet_food', methods=['POST'])
-@login_required # Ensure @login_required if it wasn't already
-def api_diet_plan(): # Renaming to api_add_diet_food for clarity if you prefer
+@login_required
+def api_add_diet_food(): # Renamed from api_diet_plan
     data = request.json
-    if not data or 'food_name' not in data or 'calories' not in data: # Ensure calories are present
+    if not data or 'food_name' not in data or 'calories' not in data:
         return jsonify({'error': 'Invalid input, food_name and calories required'}), 400
     
     food_name = data['food_name']
-    calories = data.get('calories', 0) # Default to 0 if not provided, though frontend sends it
+    try:
+        calories = int(data['calories']) # Ensure calories is an int
+    except ValueError:
+        return jsonify({'error': 'Invalid calorie format'}), 400
 
-    if not isinstance(food_name, str) or not isinstance(calories, int):
-        return jsonify({'error': 'Invalid data format for food_name or calories'}), 400
+    if not isinstance(food_name, str): # Basic type check
+        return jsonify({'error': 'Invalid data format for food_name'}), 400
 
     today_date_str = dt.now().strftime("%Y-%m-%d")
     entry = SavedCalories.query.filter_by(date=today_date_str, user_id=current_user.id).first()
     if not entry:
         entry = SavedCalories(date=today_date_str, user_id=current_user.id)
         db.session.add(entry)
-        # Commit here or after adding food item, depending on preference for atomicity
-        # For simplicity, committing after adding food item is fine.
+        db.session.flush() # Make entry.id available
     
-    # Check if this food item already exists for this entry to prevent duplicates if re-clicked without un-striking
+    # Check if this food item already exists for this entry to prevent duplicates if re-clicked
     existing_food_item = FoodItem.query.filter_by(saved_calories_id=entry.id, name=food_name).first()
     if not existing_food_item:
-        food = FoodItem(saved_calories_id=entry.id, name=food_name, calories=int(calories))
+        food = FoodItem(saved_calories_id=entry.id, name=food_name, calories=calories)
         db.session.add(food)
         db.session.commit()
+        check_and_send_goal_achievement_notification(current_user, calories)
         return jsonify({'status': 'success', 'message': 'Food item added'}), 200
     else:
-        # Item already logged for today, consider it a successful "mark as done" if it wasn't already.
-        # No change needed in DB if it's already there.
+        db.session.commit()
         return jsonify({'status': 'success', 'message': 'Food item already logged for today'}), 200
-
 
 @app.route('/api/remove_diet_food', methods=['POST'])
 @login_required
@@ -1368,3 +1452,161 @@ def get_hashed_user_id():
     if not hasattr(g, 'hashed_user_id'):
         g.hashed_user_id = hashlib.md5(str(current_user.id).encode('utf-8')).hexdigest()
     return g.hashed_user_id
+
+
+def send_push_notification(user, title, body, url="/"):
+    # Ensure VAPID keys are loaded from config, not hardcoded if they were
+    vapid_private_key = config.VAPID_PRIVATE_KEY
+    vapid_claim_email = config.VAPID_CLAIM_EMAIL
+
+    if not vapid_private_key or not vapid_claim_email:
+        app.logger.error("VAPID_PRIVATE_KEY or VAPID_CLAIM_EMAIL not configured.")
+        return
+
+    vapid_claims = {"sub": f"mailto:{vapid_claim_email}"}
+    subscriptions = PushSubscription.query.filter_by(user_id=user.id).all()
+
+    if not subscriptions:
+        app.logger.info(f"No push subscriptions found for user {user.id} to send '{title}' notification.")
+        return
+
+    app.logger.info(f"Attempting to send push notification '{title}' to {len(subscriptions)} subscription(s) for user {user.id}.")
+
+    for sub in subscriptions:
+        try:
+            webpush(
+                subscription_info={
+                    "endpoint": sub.endpoint,
+                    "keys": {
+                        "p256dh": sub.p256dh,
+                        "auth": sub.auth,
+                    },
+                },
+                data=json.dumps({
+                    "title": title,
+                    "body": body,
+                    "url": url,
+                }),
+                vapid_private_key=vapid_private_key,
+                vapid_claims=vapid_claims,
+            )
+            app.logger.info(f"Successfully sent push to endpoint {sub.endpoint[:30]}... for user {user.id}")
+        except WebPushException as ex:
+            app.logger.warning(f"WebPush failed for user {user.id}, endpoint {sub.endpoint[:30]}...: {ex}")
+            # Consider handling specific exceptions, e.g., 410 Gone to remove stale subscriptions
+            if ex.response and ex.response.status_code == 410:
+                app.logger.info(f"Subscription {sub.endpoint[:30]}... for user {user.id} is gone. Deleting.")
+                db.session.delete(sub)
+                db.session.commit()
+        except Exception as e:
+            app.logger.error(f"Unexpected error sending push to {sub.endpoint[:30]}... for user {user.id}: {e}")
+
+def check_and_send_goal_achievement_notification(user, calories_of_last_added_item_or_meal):
+    """
+    Checks if the user has achieved their daily calorie goal after adding an item/meal
+    and sends a push notification if the goal was just crossed and notifications are enabled.
+    """
+    if not user.is_authenticated or not getattr(user, 'notify_goal_achievement', True):
+        app.logger.debug(f"Goal achievement notification skipped for user {user.id}: not authenticated or opted out.")
+        return
+
+    daily_goal = user.daily_calorie_goal
+    if not daily_goal or daily_goal <= 0:
+        app.logger.debug(f"Goal achievement notification skipped for user {user.id}: no valid daily goal set.")
+        return
+
+    # Ensure calories_of_last_added_item_or_meal is a number.
+    # It represents the calories of the item(s) *just* added.
+    try:
+        calories_added = int(calories_of_last_added_item_or_meal)
+    except (ValueError, TypeError):
+        app.logger.warning(f"Goal achievement check for user {user.id}: invalid calories_of_last_added_item_or_meal ({calories_of_last_added_item_or_meal}). Skipping.")
+        return
+
+    today_date_str = dt.now().strftime("%Y-%m-%d")
+    entry = SavedCalories.query.filter_by(user_id=user.id, date=today_date_str).first()
+    
+    if not entry:
+        app.logger.debug(f"Goal achievement notification skipped for user {user.id}: no food entry for today.")
+        return
+
+    total_calories_today = sum(f.calories for f in entry.food_items if f.calories is not None)
+    
+    app.logger.info(f"User {user.id}: Checking goal. Total today: {total_calories_today}, Last item(s) cals: {calories_added}, Goal: {daily_goal}")
+
+    # Check if the goal was crossed with the addition of the last item/meal
+    if total_calories_today >= daily_goal and \
+       (total_calories_today - calories_added) < daily_goal:
+        
+        app.logger.info(f"User {user.id} achieved daily calorie goal. Sending notification.")
+        # Ensure url_for has app context if this function were ever moved outside routes.py
+        # Here, it's fine as it's in routes.py.
+        notification_url = url_for('diet', _external=True) # _external=True can be useful for notifications
+        send_push_notification(
+            user,
+            title="🎉 Goal Achieved!",
+            body=f"You've reached your daily calorie goal of {daily_goal} kcal!",
+            url=notification_url
+        )
+    elif total_calories_today >= daily_goal:
+        app.logger.info(f"User {user.id} is at/over goal, but threshold was not crossed by this addition. Total: {total_calories_today}, Prev total approx: {total_calories_today - calories_added}, Goal: {daily_goal}")
+    else:
+        app.logger.info(f"User {user.id} has not yet reached goal. Total: {total_calories_today}, Goal: {daily_goal}")
+
+@app.route('/admin/send_custom_notifications', methods=['POST'])
+@login_required
+def send_custom_notifications():
+    user_ids = []
+    if not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+    user_ids_raw = request.form.get('user_ids', '').strip()
+    if not user_ids_raw:
+        user_ids = [str(user.id) for user in User.query.all()]
+    else:
+        user_ids = [uid.strip() for uid in user_ids_raw.split(',') if uid.strip()]
+    title = request.form.get('title', 'Custom Notification')
+    body = request.form.get('body', 'This is a custom notification.')
+    url = request.form.get('url', '/')
+    for user_id in user_ids:
+        user = User.query.get(int(user_id))
+        if user:
+            try:
+                send_push_notification(user, title, body, url)
+            except Exception as e:
+                app.logger.error(f"Error sending custom notification to user {user_id}: {e}")
+                return jsonify({'error': f'Failed to send notification to user {user_id}'}), 500
+    return jsonify({'status': True}), 200
+
+def meal_reminder_notification():
+    """Send meal reminder notifications to users who have enabled them."""
+    users = User.query.filter_by(notify_meal_reminder=True).all()
+    for user in users:
+        if not user.reminder_time:
+            continue
+        now = dt.now().time()
+        reminder_time = dt.strptime(user.reminder_time, '%H:%M').time()
+        if now >= reminder_time:  # Check if it's time for the reminder
+            send_push_notification(
+                user,
+                title="🍽️ Meal Reminder",
+                body="It's time to log your meals for today!",
+                url=url_for('saved', _external=True)
+            )
+
+@app.route('/api/user/set_timezone', methods=['POST'])
+@login_required
+def set_timezone():
+    """Set the user's timezone."""
+    timezone = request.json.get('timezone')
+    if not timezone or timezone not in pytz.all_timezones:
+        message = jsonify({'error': 'Timezone is required'}), 400 
+        timezone = 'UTC'  # Default to UTC if not provided or invalid   
+    try:
+        current_user.timezone = timezone
+        db.session.commit()
+        message = jsonify({'success': True})
+    except Exception as e:
+        app.logger.error(f"Error setting timezone for user {current_user.id}: {e}")
+        db.session.rollback()
+        message = jsonify({'error': 'Failed to set timezone'}), 500
+    return message

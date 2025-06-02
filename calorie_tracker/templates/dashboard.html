@@ -151,4 +151,37 @@
         </div>
     </div>
 </div>
+<script>
+  if (!sessionStorage.getItem('timezone_set_attempted_dashboard')) {
+    const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (userTimezone) {
+      fetch('/api/user/set_timezone', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({ timezone: userTimezone })
+      })
+      .then(response => {
+        if (response.ok) {
+          sessionStorage.setItem('timezone_set_attempted_dashboard', 'true');
+          return response.json();
+        }
+        console.warn('Failed to set timezone on server. Status:', response.status);
+      })
+      .then(data => {
+        if(data) console.log('Timezone set/checked on server:', data);
+      })
+      .catch(error => {
+        console.error('Error setting timezone:', error);
+        // Still set the flag to avoid retrying constantly on persistent errors
+        sessionStorage.setItem('timezone_set_attempted_dashboard', 'true'); 
+      });
+    } else {
+        console.warn('Could not determine user timezone.');
+        sessionStorage.setItem('timezone_set_attempted_dashboard', 'true'); // Don't retry if timezone is undetectable
+    }
+  }
+</script>
 {% endblock %}

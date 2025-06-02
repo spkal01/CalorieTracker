@@ -1,0 +1,193 @@
+{% extends 'admin/master.html' %}
+
+{% block head_css %}
+    {{ super() }}
+    <style>
+        .admin-custom-section {
+            background-color: #f8f9fa; /* Light grey background, common in admin panels */
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            margin-top: 2em;
+            max-width: 600px; /* Control max width for better readability */
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .admin-custom-section h2 {
+            font-size: 1.75rem;
+            color: #343a40; /* Darker grey for heading */
+            margin-bottom: 1.5rem;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .admin-form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .admin-label {
+            display: block;
+            font-weight: 500;
+            color: #495057; /* Standard label color */
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .admin-input,
+        .admin-textarea {
+            width: 100%;
+            padding: 0.65rem 0.9rem;
+            border-radius: 5px;
+            border: 1px solid #ced4da; /* Standard Bootstrap border color */
+            background-color: #fff;
+            color: #495057;
+            font-size: 0.95rem;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        }
+
+        .admin-input:focus,
+        .admin-textarea:focus {
+            border-color: #80bdff; /* Bootstrap focus color */
+            outline: 0;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        }
+
+        .admin-textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .admin-button-primary {
+            background-color: #007bff; /* Bootstrap primary blue */
+            border: none;
+            padding: 0.7rem 1.5rem;
+            border-radius: 5px;
+            font-weight: 500;
+            color: white;
+            font-size: 0.95rem;
+            transition: background-color 0.2s ease-in-out;
+            width: 100%; /* Make button full width */
+            cursor: pointer;
+        }
+
+        .admin-button-primary:hover {
+            background-color: #0056b3; /* Darker blue on hover */
+        }
+
+        .admin-feedback {
+            margin-top: 1.25rem;
+            font-weight: 500;
+            padding: 0.75rem;
+            border-radius: 5px;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+
+        .admin-feedback-sending {
+            color: #004085; /* Dark blue for info */
+            background-color: #cce5ff;
+            border: 1px solid #b8daff;
+        }
+
+        .admin-feedback-success {
+            color: #155724; /* Dark green for success */
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+        }
+
+        .admin-feedback-error {
+            color: #721c24; /* Dark red for error */
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12 justify-content-center">
+            <h1 class="mt-4 mb-3">Admin Dashboard</h1>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-md-10">
+            <div class="admin-custom-section">
+                <h2>Send Custom Notification</h2>
+                <form id="custom-notification-form" method="post" action="{{ url_for('send_custom_notifications') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    
+                    <div class="admin-form-group">
+                        <label for="user_ids" class="admin-label">User IDs (comma separated, blank for all)</label>
+                        <input type="text" id="user_ids" name="user_ids" class="admin-input" placeholder="e.g. 1, 2, 3">
+                    </div>
+                    
+                    <div class="admin-form-group">
+                        <label for="title" class="admin-label">Title</label>
+                        <input type="text" id="title" name="title" class="admin-input" required>
+                    </div>
+                    
+                    <div class="admin-form-group">
+                        <label for="body" class="admin-label">Message</label>
+                        <textarea id="body" name="body" class="admin-textarea" rows="4" required></textarea>
+                    </div>
+                    
+                    <div class="admin-form-group">
+                        <label for="url" class="admin-label">URL (optional)</label>
+                        <input type="text" id="url" name="url" class="admin-input" placeholder="/profile">
+                    </div>
+                    
+                    <button type="submit" class="admin-button-primary">Send Notification</button>
+                </form>
+                <div id="notification-result" class="admin-feedback" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('custom-notification-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const form = e.target;
+    const data = new FormData(form);
+    const resultDiv = document.getElementById('notification-result');
+    
+    resultDiv.textContent = "Sending...";
+    resultDiv.className = 'admin-feedback admin-feedback-sending'; // Reset classes and set sending
+    resultDiv.style.display = 'block';
+
+    try {
+        const resp = await fetch(form.action, {
+            method: "POST",
+            body: data
+        });
+        
+        // Always try to parse as JSON first, as backend should return JSON
+        let respData;
+        try {
+            respData = await resp.json();
+        } catch (jsonError) {
+            // If JSON parsing fails, it might be an HTML error page (e.g. 500 internal server error not caught by Flask)
+            console.error("Failed to parse JSON response:", jsonError);
+            resultDiv.textContent = "❌ Error: Server returned an unexpected response. Check console.";
+            resultDiv.className = 'admin-feedback admin-feedback-error';
+            return;
+        }
+
+        if (resp.ok && respData.status) {
+            resultDiv.textContent = "✅ Notification sent successfully!";
+            resultDiv.className = 'admin-feedback admin-feedback-success';
+        } else {
+            resultDiv.textContent = "❌ Error: " + (respData.error || "Failed to send notification. Status: " + resp.status);
+            resultDiv.className = 'admin-feedback admin-feedback-error';
+        }
+    } catch (err) {
+        console.error("Network or other error:", err);
+        resultDiv.textContent = "❌ Network Error: Could not reach server. " + err.message;
+        resultDiv.className = 'admin-feedback admin-feedback-error';
+    }
+});
+</script>
+{% endblock %}

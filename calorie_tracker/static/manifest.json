@@ -74,5 +74,15 @@
   "dir": "ltr",
   "lang": "en-US",
   "orientation": "portrait",
-  "prefer_related_applications": false
+  "prefer_related_applications": false,
+  "gcm_sender_id": "103953800507",
+  "related_applications": [],
+  "permissions": [
+    "notifications"
+  ],
+  "scope": "/",
+  "serviceworker": {
+    "src": "/sw.js",
+    "scope": "/"
+  }
 }
