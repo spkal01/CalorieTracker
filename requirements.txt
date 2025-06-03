@@ -44,4 +44,4 @@ Flask-Wtf==1.2.2
 pillow==11.2.1
 pillow-heif==0.22.0
 redis==6.2.0
-celery==5.3.3
+celery==5.5.3
