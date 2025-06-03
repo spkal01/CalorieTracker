@@ -12,5 +12,3 @@ instance/*
 .vscode/
 .idea/
 
-# Migration files
-migrations/
