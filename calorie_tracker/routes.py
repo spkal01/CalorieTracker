@@ -6,7 +6,6 @@ import base64
 import cv2
 import secrets
 import json
-import geoip2.database
 import pytz
 from datetime import datetime as dt, timedelta 
 import threading
@@ -20,7 +19,7 @@ from PIL import Image
 import pillow_heif
 
 from calorie_tracker import (
-    app, allowed_file, cleanup_uploads, config, db, bcrypt, login_manager, mail
+    app, allowed_file, cleanup_uploads, config, db, bcrypt, login_manager, mail, celery
 )
 
 from calorie_tracker.models import (
@@ -1577,22 +1576,6 @@ def send_custom_notifications():
                 return jsonify({'error': f'Failed to send notification to user {user_id}'}), 500
     return jsonify({'status': True}), 200
 
-def meal_reminder_notification():
-    """Send meal reminder notifications to users who have enabled them."""
-    users = User.query.filter_by(notify_meal_reminder=True).all()
-    for user in users:
-        if not user.reminder_time:
-            continue
-        now = dt.now().time()
-        reminder_time = dt.strptime(user.reminder_time, '%H:%M').time()
-        if now >= reminder_time:  # Check if it's time for the reminder
-            send_push_notification(
-                user,
-                title="🍽️ Meal Reminder",
-                body="It's time to log your meals for today!",
-                url=url_for('saved', _external=True)
-            )
-
 @app.route('/api/user/set_timezone', methods=['POST'])
 @login_required
 def set_timezone():
@@ -1610,3 +1593,108 @@ def set_timezone():
         db.session.rollback()
         message = jsonify({'error': 'Failed to set timezone'}), 500
     return message
+
+@app.route('/api/schedule_meal_reminders', methods=['POST'])
+@login_required
+def schedule_meal_reminders_api():
+    """API endpoint to schedule meal reminders for all users who have enabled them."""
+    if not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 401
+    try:
+        schedule_meal_reminders()
+        return jsonify({'status': 'success', 'message': 'Meal reminders scheduled successfully.'}), 200
+    except Exception as e:
+        app.logger.error(f"Error scheduling meal reminders: {e}")
+        return jsonify({'status': 'error', 'message': 'Failed to schedule meal reminders.'}), 500
+
+def schedule_meal_reminders():
+    """Schedule meal reminders for users who have enabled them."""
+    users = User.query.filter_by(notify_meal_reminder=True).all()
+    for user in users:
+        if not user.reminder_time or not user.timezone:
+            continue
+
+        reminder_time_str = user.reminder_time  # already a string in 'HH:MM' format
+        send_at.delay(user.id, reminder_time_str)
+
+@celery.task(name='calorie_tracker.routes.send_at')
+def send_at(user_id, reminder_time_str):  # Accept string, not time object
+    """Send a reminder at a specific time."""
+    user = User.query.get(user_id)
+    if not user or not user.timezone:
+        app.logger.warning(f"send_at: User {user_id} not found or has no timezone. Skipping.")
+        return
+
+    try:
+        user_tz = pytz.timezone(user.timezone)
+    except pytz.UnknownTimeZoneError:
+        app.logger.error(f"send_at: User {user_id} has invalid timezone '{user.timezone}'. Skipping.")
+        return
+
+    now_in_user_tz = dt.now(user_tz)
+
+    # Parse the time string
+    try:
+        reminder_time_struct = dt.strptime(reminder_time_str, '%H:%M').time()
+    except Exception as e:
+        app.logger.error(f"send_at: Invalid reminder_time_str '{reminder_time_str}' for user {user_id}: {e}")
+        return
+
+    target_time_in_user_tz = now_in_user_tz.replace(
+        hour=reminder_time_struct.hour,
+        minute=reminder_time_struct.minute,
+        second=0,
+        microsecond=0
+    )
+    app.logger.info(f"send_at: User {user_id} - Initial target time in user's timezone ({user.timezone}): {target_time_in_user_tz.strftime('%Y-%m-%d %H:%M:%S %Z%z')}") 
+
+
+    if now_in_user_tz >= target_time_in_user_tz:
+        # If the target time is in the past for today, schedule for tomorrow
+        target_time_in_user_tz += timedelta(days=1)
+        app.logger.info(f"send_at: User {user_id} - Target time was in the past for today. Adjusted to next day: {target_time_in_user_tz.strftime('%Y-%m-%d %H:%M:%S %Z%z')}")
+    
+    utc_target = target_time_in_user_tz.astimezone(pytz.utc)
+    
+    # Calculate countdown
+    now_utc = dt.now(pytz.utc)
+    countdown_seconds = (utc_target - now_utc).total_seconds()
+    
+    # Log scheduling details
+    app.logger.info(
+        f"send_at: User {user_id} - Scheduling 'send_meal_reminder_task'. "
+        f"User's local target: {target_time_in_user_tz.strftime('%Y-%m-%d %H:%M')} {user.timezone}. "
+        f"Scheduled UTC ETA: {utc_target.strftime('%Y-%m-%d %H:%M:%S %Z%z')}. "
+        f"Countdown from server (UTC now): {countdown_seconds:.0f} seconds (approx {timedelta(seconds=countdown_seconds)})."
+    )
+
+    # Ensure send_meal_reminder_task is registered with Celery
+    send_meal_reminder_task.apply_async(args=[user_id], eta=utc_target)
+
+@celery.task(name='calorie_tracker.routes.send_meal_reminder_task')
+def send_meal_reminder_task(user_id):
+    """Celery task to send meal reminder notification."""
+    app.logger.info(f"send_meal_reminder_task: Task started for user_id: {user_id}")
+    with app.app_context(): 
+        app.logger.info(f"send_meal_reminder_task: App context entered for user_id: {user_id}")
+        user = User.query.get(user_id)
+        if user:
+            app.logger.info(f"send_meal_reminder_task: User {user.username} (ID: {user_id}) found.")
+            if user.notify_meal_reminder:
+                app.logger.info(f"send_meal_reminder_task: notify_meal_reminder is TRUE for user {user_id}.")
+                try:
+                    app.logger.info(f"send_meal_reminder_task: Attempting to send push notification to user {user_id}.")
+                    send_push_notification(
+                        user,
+                        title="🍽️ Meal Reminder",
+                        body="It's time to log your meals for today!",
+                        url=url_for('saved')
+                    )
+                    app.logger.info(f"send_meal_reminder_task: Successfully called send_push_notification for user {user_id}.")
+                except Exception as e:
+                    app.logger.error(f"send_meal_reminder_task: Error calling send_push_notification for user {user_id}: {e}", exc_info=True)
+            else:
+                app.logger.info(f"send_meal_reminder_task: notify_meal_reminder is FALSE for user {user_id}. Notification not sent.")
+        else:
+            app.logger.warning(f"send_meal_reminder_task: User with ID {user_id} not found. Cannot send reminder.")
+    app.logger.info(f"send_meal_reminder_task: Task finished for user_id: {user_id}")

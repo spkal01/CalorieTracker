@@ -75,6 +75,24 @@
             background-color: #0056b3; /* Darker blue on hover */
         }
 
+        .admin-button-secondary { /* New style for the scheduler button */
+            background-color: #6c757d; /* Bootstrap secondary grey */
+            border: none;
+            padding: 0.7rem 1.5rem;
+            border-radius: 5px;
+            font-weight: 500;
+            color: white;
+            font-size: 0.95rem;
+            transition: background-color 0.2s ease-in-out;
+            width: 100%;
+            cursor: pointer;
+            margin-top: 1rem; /* Add some space above */
+        }
+
+        .admin-button-secondary:hover {
+            background-color: #545b62; /* Darker grey on hover */
+        }
+
         .admin-feedback {
             margin-top: 1.25rem;
             font-weight: 500;
@@ -114,6 +132,7 @@
 
     <div class="row justify-content-center">
         <div class="col-lg-8 col-md-10">
+            <!-- Custom Notification Section -->
             <div class="admin-custom-section">
                 <h2>Send Custom Notification</h2>
                 <form id="custom-notification-form" method="post" action="{{ url_for('send_custom_notifications') }}">
@@ -143,50 +162,112 @@
                 </form>
                 <div id="notification-result" class="admin-feedback" style="display: none;"></div>
             </div>
+
+            <!-- Schedule Meal Reminders Section -->
+            <div class="admin-custom-section mt-5"> {# Add margin-top for spacing #}
+                <h2>Meal Reminder Scheduler</h2>
+                <p class="text-center text-muted mb-3">
+                    This will trigger the process to schedule (or re-schedule) meal reminders for all users who have them enabled, based on their current settings. This is typically handled automatically by Celery Beat daily, but can be run manually here if needed.
+                </p>
+                <button id="schedule-reminders-button" class="admin-button-secondary">Schedule All Meal Reminders Now</button>
+                <div id="scheduler-result" class="admin-feedback" style="display: none;"></div>
+            </div>
+
         </div>
     </div>
 </div>
 
 <script>
-document.getElementById('custom-notification-form').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    const form = e.target;
-    const data = new FormData(form);
-    const resultDiv = document.getElementById('notification-result');
-    
-    resultDiv.textContent = "Sending...";
-    resultDiv.className = 'admin-feedback admin-feedback-sending'; // Reset classes and set sending
-    resultDiv.style.display = 'block';
+document.addEventListener('DOMContentLoaded', function() {
+    // Custom Notification Form Handler
+    const customNotificationForm = document.getElementById('custom-notification-form');
+    if (customNotificationForm) {
+        customNotificationForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const form = e.target;
+            const data = new FormData(form);
+            const resultDiv = document.getElementById('notification-result');
+            
+            resultDiv.textContent = "Sending...";
+            resultDiv.className = 'admin-feedback admin-feedback-sending';
+            resultDiv.style.display = 'block';
 
-    try {
-        const resp = await fetch(form.action, {
-            method: "POST",
-            body: data
+            try {
+                const resp = await fetch(form.action, {
+                    method: "POST",
+                    body: data
+                    // CSRF token is already in FormData via hidden input
+                });
+                
+                let respData;
+                try {
+                    respData = await resp.json();
+                } catch (jsonError) {
+                    console.error("Failed to parse JSON response from custom notification:", jsonError);
+                    resultDiv.textContent = "❌ Error: Server returned an unexpected response. Check console.";
+                    resultDiv.className = 'admin-feedback admin-feedback-error';
+                    return;
+                }
+
+                if (resp.ok && respData.status) {
+                    resultDiv.textContent = "✅ Notification sent successfully!";
+                    resultDiv.className = 'admin-feedback admin-feedback-success';
+                } else {
+                    resultDiv.textContent = "❌ Error: " + (respData.error || "Failed to send notification. Status: " + resp.status);
+                    resultDiv.className = 'admin-feedback admin-feedback-error';
+                }
+            } catch (err) {
+                console.error("Network or other error sending custom notification:", err);
+                resultDiv.textContent = "❌ Network Error: Could not reach server. " + err.message;
+                resultDiv.className = 'admin-feedback admin-feedback-error';
+            }
         });
-        
-        // Always try to parse as JSON first, as backend should return JSON
-        let respData;
-        try {
-            respData = await resp.json();
-        } catch (jsonError) {
-            // If JSON parsing fails, it might be an HTML error page (e.g. 500 internal server error not caught by Flask)
-            console.error("Failed to parse JSON response:", jsonError);
-            resultDiv.textContent = "❌ Error: Server returned an unexpected response. Check console.";
-            resultDiv.className = 'admin-feedback admin-feedback-error';
-            return;
-        }
+    }
 
-        if (resp.ok && respData.status) {
-            resultDiv.textContent = "✅ Notification sent successfully!";
-            resultDiv.className = 'admin-feedback admin-feedback-success';
-        } else {
-            resultDiv.textContent = "❌ Error: " + (respData.error || "Failed to send notification. Status: " + resp.status);
-            resultDiv.className = 'admin-feedback admin-feedback-error';
-        }
-    } catch (err) {
-        console.error("Network or other error:", err);
-        resultDiv.textContent = "❌ Network Error: Could not reach server. " + err.message;
-        resultDiv.className = 'admin-feedback admin-feedback-error';
+    // Schedule Meal Reminders Button Handler
+    const scheduleButton = document.getElementById('schedule-reminders-button');
+    if (scheduleButton) {
+        scheduleButton.addEventListener('click', async function() {
+            const resultDiv = document.getElementById('scheduler-result');
+            const csrfToken = document.querySelector('input[name="csrf_token"]').value; // Get CSRF token
+
+            resultDiv.textContent = "Scheduling...";
+            resultDiv.className = 'admin-feedback admin-feedback-sending';
+            resultDiv.style.display = 'block';
+
+            try {
+                const resp = await fetch("{{ url_for('schedule_meal_reminders_api') }}", {
+                    method: "POST",
+                    headers: {
+                        'Content-Type': 'application/json', // Not strictly needed for an empty body POST, but good practice
+                        'X-CSRFToken': csrfToken // Send CSRF token in headers
+                    },
+                    // body: JSON.stringify({}) // No body needed for this specific API call
+                });
+
+                let respData;
+                try {
+                    respData = await resp.json();
+                } catch (jsonError) {
+                    console.error("Failed to parse JSON response from scheduler:", jsonError);
+                    resultDiv.textContent = "❌ Error: Server returned an unexpected response. Check console.";
+                    resultDiv.className = 'admin-feedback admin-feedback-error';
+                    return;
+                }
+
+                if (resp.ok && respData.status === 'success') {
+                    resultDiv.textContent = "✅ " + (respData.message || "Meal reminders scheduled successfully!");
+                    resultDiv.className = 'admin-feedback admin-feedback-success';
+                } else {
+                    resultDiv.textContent = "❌ Error: " + (respData.message || respData.error || "Failed to schedule reminders. Status: " + resp.status);
+                    resultDiv.className = 'admin-feedback admin-feedback-error';
+                }
+            } catch (err) {
+                console.error("Network or other error scheduling reminders:", err);
+                resultDiv.textContent = "❌ Network Error: Could not reach server. " + err.message;
+                resultDiv.className = 'admin-feedback admin-feedback-error';
+            }
+        });
     }
 });
 </script>

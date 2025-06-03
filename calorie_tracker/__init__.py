@@ -11,6 +11,8 @@ from flask_migrate import Migrate
 from flask_dance.contrib.google import make_google_blueprint
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_wtf.csrf import CSRFProtect
+from celery import Celery
+from celery.schedules import crontab 
 
 # Create Flask app and trust proxy headers (Render)
 app = Flask(__name__)
@@ -36,6 +38,8 @@ app.config['MAIL_PASSWORD'] = config.MAIL_PASSWORD
 app.config['MAIL_USE_TLS'] = config.MAIL_USE_TLS
 app.config['MAIL_USE_SSL'] = config.MAIL_USE_SSL
 app.config['MAIL_DEFAULT_SENDER'] = config.MAIL_DEFAULT_SENDER
+app.config['SERVER_NAME'] = config.SERVER_NAME
+app.config['PREFERRED_URL_SCHEME'] = 'https'
 
 # Push notification configuration
 app.config['VAPID_PUBLIC_KEY'] = os.environ.get('VAPID_PUBLIC_KEY', config.VAPID_PUBLIC_KEY)
@@ -58,6 +62,33 @@ bcrypt = Bcrypt(app)
 mail = Mail(app)
 migrate = Migrate(app, db)
 csrf = CSRFProtect(app)  # Initialize CSRFProtect
+
+# --- Celery Configuration ---
+celery = Celery(
+    app.import_name, 
+    broker=config.CELERY_BROKER_URL,
+    backend=config.CELERY_BROKER_URL,
+    include=['calorie_tracker.routes']
+)
+celery.conf.update(app.config)
+
+class ContextTask(celery.Task):
+    def __call__(self, *args, **kwargs):
+        with app.app_context():
+            return self.run(*args, **kwargs)
+
+celery.Task = ContextTask # Set the default Task class for Celery
+
+# --- Celery Beat Schedule ---
+celery.conf.beat_schedule = {
+    'schedule-all-meal-reminders-daily': {
+        'task': 'calorie_tracker.routes.schedule_meal_reminders',
+        'schedule': crontab(hour=1, minute=0),  # Runs daily at 1:00 AM
+        # You can adjust the time as needed, e.g., crontab(minute='*/30') for every 30 mins for testing
+    },
+}
+celery.conf.timezone = 'UTC' 
+
 
 # Configure Google OAuth blueprint (uses /login/google and /login/google/authorized)
 google_bp = make_google_blueprint(

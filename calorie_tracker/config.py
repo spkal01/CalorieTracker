@@ -44,4 +44,7 @@ SQLALCHEMY_DATABASE_URI = os.environ.get('SQLALCHEMY_DATABASE_URI', 'sqlite:///c
 # Push notification configuration
 VAPID_PUBLIC_KEY = os.environ.get('VAPID_PUBLIC_KEY', '')
 VAPID_PRIVATE_KEY = os.environ.get('VAPID_PRIVATE_KEY', '')
-VAPID_CLAIM_EMAIL = os.environ.get('VAPID_CLAIM_EMAIL', MAIL_USERNAME or 'contact@calorietracker.example.com')
+VAPID_CLAIM_EMAIL = os.environ.get('VAPID_CLAIM_EMAIL', MAIL_USERNAME or '')
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+SERVER_NAME = os.environ.get('SERVER_NAME', 'fitness.spkal01.me')
+
