@@ -46,3 +46,4 @@ pillow-heif==0.22.0
 redis==6.2.0
 celery==5.5.3
 pytz==2025.2
+pywebpush==1.14.1
