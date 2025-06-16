@@ -1,4 +1,7 @@
 import os
+from dotenv import load_dotenv
+# Load environment variables from a .env file if it exists
+load_dotenv()
 
 # Read the comma-separated string of API keys from the environment variable
 OPENAI_API_KEYS_STR = os.environ.get(

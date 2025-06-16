@@ -12,3 +12,5 @@ instance/*
 .vscode/
 .idea/
 
+# Environment variables
+.env

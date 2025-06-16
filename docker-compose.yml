@@ -1,0 +1,46 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:16
+    restart: always
+    env_file: .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7
+    restart: always
+    ports:
+      - "6379:6379"
+
+  web:
+    build: .
+    command: gunicorn calorie_tracker:app
+    env_file: .env
+    depends_on:
+      - db
+      - redis
+    ports:
+      - "5000:5000"
+
+  worker:
+    build: .
+    command: celery -A calorie_tracker.celery worker --loglevel=info
+    env_file: .env
+    depends_on:
+      - db
+      - redis
+
+  beat:
+    build: .
+    command: celery -A calorie_tracker.celery beat --loglevel=info
+    env_file: .env
+    depends_on:
+      - db
+      - redis
+
+volumes:
+  postgres_data:
