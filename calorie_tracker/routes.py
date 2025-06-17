@@ -666,11 +666,124 @@ def verify_reset_token(token, expiration=3600):
         return None
     return email
 
+
+@shared_task(bind=True)
+def generate_ai_analysis_task(self, user_id):
+    """
+    Celery task to generate AI nutrition analysis asynchronously.
+    """
+    with app.app_context():
+        user = User.query.get(user_id)
+        if not user:
+            self.update_state(state='FAILURE', meta={'error': 'User not found'})
+            return {'status': 'FAILURE', 'error': 'User not found'}
+
+        # Assume profile is complete based on check in api_ai_analysis
+        weight = user.weight
+        height = user.height
+        age = user.age
+        gender = user.gender
+        calorie_goal = user.daily_calorie_goal
+        
+        user_timezone = user.timezone or 'UTC'
+        today_str = dt.now(pytz.timezone(user_timezone)).strftime("%Y-%m-%d")
+        now_time = dt.now(pytz.timezone(user_timezone)).strftime("%H:%M")
+
+        entry = SavedCalories.query.filter_by(date=today_str, user_id=user.id).first()
+        food_entries = {food.name: food.calories for food in entry.food_items} if entry and entry.food_items else {}
+        total_calories_today = sum(food_entries.values())
+
+        prompt = (
+            f"You are a helpful nutrition assistant. "
+            f"Here is today's user data:\n"
+            f"- Date: {today_str}\n"
+            f"- Time: {now_time}\n"
+            f"- Age: {age}\n"
+            f"- Weight: {weight} kg\n"
+            f"- Height: {height} cm\n"
+            f"- Gender: {gender}\n"
+            f"- Daily Calorie Goal: {calorie_goal} kcal\n"
+            f"- Total Calories Consumed Today: {total_calories_today} kcal\n"
+            f"- Foods consumed today (name: calories): {food_entries}\n\n"
+            "Please provide a brief markdown-formatted analysis of the user's day so far, "
+            "including:\n"
+            "- A summary of their calorie intake\n"
+            "- At least one tip for improvement or encouragement\n"
+            "- Suggestions for the rest of the day if needed\n"
+            "Be concise, friendly, and use bullet points or sections where appropriate.\n"
+            "Do not include any unrelated information or disclaimers.\n"
+            "your response should be in markdown format and it should be stylish and playfull but nothing too much.\n"
+            "Do not show the age weight height and gender in the response.\n"
+        )
+
+        try:
+            response = call_openai_api_with_fallback(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "You are a helpful nutrition and calorie tracking assistant."},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.7,
+                max_tokens=400,
+                user=get_hashed_user_id(user.id)
+            )
+            analysis = response.choices[0].message.content
+            return {'status': 'SUCCESS', 'analysis': analysis}
+        except Exception as e:
+            app.logger.error(f"Error in generate_ai_analysis_task for user {user_id}: {e}")
+            meta = {'exc_type': type(e).__name__, 'exc_message': str(e)}
+            self.update_state(state='FAILURE', meta=meta)
+            return {'status': 'FAILURE', 'error': 'An error occurred during analysis.'}
+
 @app.route('/api/ai-analysis')
 @login_required
 def api_ai_analysis():
-    analysis = get_ai_analysis()  # This returns markdown
-    return jsonify({'analysis': analysis})
+    # Check if profile is complete before starting anything
+    if not all([current_user.weight, current_user.height, current_user.age, current_user.gender, current_user.daily_calorie_goal]):
+        flash('Please set your profile information in settings to use AI Analysis.', 'warning')
+        return jsonify({'status': 'PROFILE_INCOMPLETE', 'redirect_url': url_for('settings')})
+
+    task_id = session.get('ai_analysis_task_id')
+    
+    if task_id:
+        task = generate_ai_analysis_task.AsyncResult(task_id)
+        if task.state == 'PENDING' or task.state == 'STARTED':
+            return jsonify({'status': 'PENDING'})
+        elif task.state == 'SUCCESS':
+            session.pop('ai_analysis_task_id', None)
+            result = task.get()
+            analysis = result.get('analysis')
+            
+            # Cache the successful result in session
+            today = dt.now(pytz.timezone(current_user.timezone or 'UTC')).strftime("%Y-%m-%d")
+            cache_key = f"ai_analysis_{today}_{current_user.id}"
+            session[cache_key] = analysis
+            
+            return jsonify({'status': 'SUCCESS', 'analysis': analysis})
+        elif task.state == 'FAILURE':
+            session.pop('ai_analysis_task_id', None)
+            return jsonify({'status': 'FAILURE', 'message': 'Analysis failed to generate.'}), 500
+
+    # No running task, check cache before starting a new one
+    today = dt.now(pytz.timezone(current_user.timezone or 'UTC')).strftime("%Y-%m-%d")
+    entry = SavedCalories.query.filter_by(date=today, user_id=current_user.id).first()
+    total_calories_today = sum(f.calories for f in entry.food_items) if entry else 0
+
+    cache_key = f"ai_analysis_{today}_{current_user.id}"
+    cache_cal_key = f"ai_analysis_cal_{today}_{current_user.id}"
+    cached_analysis = session.get(cache_key)
+    cached_calories = session.get(cache_cal_key)
+
+    if cached_analysis is not None and cached_calories == total_calories_today:
+        return jsonify({'status': 'SUCCESS', 'analysis': cached_analysis})
+
+    # Start a new task
+    task = generate_ai_analysis_task.delay(current_user.id)
+    session['ai_analysis_task_id'] = task.id
+    session[cache_cal_key] = total_calories_today
+
+    return jsonify({'status': 'PENDING'})
+
 
 @app.route('/api/get_diet_plan_item_statuses', methods=['GET'])
 @login_required
@@ -800,71 +913,7 @@ def ai_reccomend_daily_calories():
 
     return response.choices[0].message.content
 
-def get_ai_analysis():
-    weight = current_user.weight
-    height = current_user.height
-    age = current_user.age
-    gender = current_user.gender
-    calorie_goal = current_user.daily_calorie_goal
-    if not all([weight, height, age, gender, calorie_goal]):
-        flash('Please set your profile information in settings.', 'error')
-        return redirect(url_for('settings'))
 
-    today = dt.now().strftime("%Y-%m-%d")
-    now_time = dt.now(pytz.timezone(current_user.timezone)).strftime("%H:%M") if current_user.timezone else dt.now().strftime("%H:%M")
-    total_calories = get_saved_data()[0]['total_calories'] if get_saved_data() else 0
-    entry = SavedCalories.query.filter_by(date=today, user_id=current_user.id).first()
-    # --- Caching logic using session ---
-    cache_key = f"ai_analysis_{today}_{current_user.id}"
-    cache_cal_key = f"ai_analysis_cal_{today}_{current_user.id}"
-    cached_analysis = session.get(cache_key)
-    cached_calories = session.get(cache_cal_key)
-
-    if cached_analysis and cached_calories == total_calories:
-        return cached_analysis
-
-    # Compose the prompt for OpenAI
-    food_entries = {food.name: food.calories for food in entry.food_items} if entry and entry.food_items else {}
-
-    prompt = (
-        f"You are a helpful nutrition assistant. "
-        f"Here is today's user data:\n"
-        f"- Date: {today}\n"
-        f"- Time: {now_time}\n"
-        f"- Age: {age}\n"
-        f"- Weight: {weight} kg\n"
-        f"- Height: {height} cm\n"
-        f"- Gender: {gender}\n"
-        f"- Daily Calorie Goal: {calorie_goal} kcal\n"
-        f"- Foods consumed today (name: calories): {food_entries}\n\n"
-        "Please provide a brief markdown-formatted analysis of the user's day so far, "
-        "including:\n"
-        "- A summary of their calorie intake\n"
-        "- At least one tip for improvement or encouragement\n"
-        "- Suggestions for the rest of the day if needed\n"
-        "Be concise, friendly, and use bullet points or sections where appropriate.\n"
-        "Do not include any unrelated information or disclaimers.\n"
-        "your response should be in markdown format and it should be stylish and playfull but nothing too much.\n"
-        "Do not show the age weight height and gender in the response.\n"
-    )
-
-    response = call_openai_api_with_fallback(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "You are a helpful nutrition and calorie tracking assistant."},
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0.7,
-        max_tokens=400,
-        user=get_hashed_user_id()
-    )
-    analysis = response.choices[0].message.content
-
-    # Cache the analysis and calories
-    session[cache_key] = analysis
-    session[cache_cal_key] = total_calories
-
-    return analysis
 def get_motivational_tip():
     quotes = [
         "Eat to fuel your body, not to feed your emotions.",

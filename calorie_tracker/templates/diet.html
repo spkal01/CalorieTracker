@@ -362,56 +362,72 @@ document.addEventListener("DOMContentLoaded", function() {
 
         if (!aiAnalysisBox || !aiAnalysisLoading || !aiAnalysisContent) return;
 
-        fetch('/api/ai-analysis')
-            .then(response => {
-                if (!response.ok) throw new Error('Network response was not ok');
-                return response.json();
-            })
-            .then(data => {
-                const analysisText = data.analysis || "No analysis available.";
-                aiAnalysisContent.innerHTML = marked.parse(analysisText);
+        let pollingInterval;
 
-                // Fade out loading
-                aiAnalysisLoading.style.opacity = '0';
-                setTimeout(() => {
-                    aiAnalysisLoading.classList.add('hidden');
-                    aiAnalysisContent.classList.remove('hidden');
-                    aiAnalysisContent.style.opacity = '0';
-                    
-                    // Expand box
-                    const isMobile = window.innerWidth < 768;
-                    if (isMobile) {
-                        aiAnalysisBox.style.maxHeight = "250px";
-                        // Show expand button for mobile
-                        if (expandBtn) {
-                            expandBtn.classList.remove('hidden');
-                            let isExpanded = false;
-                            expandBtn.addEventListener('click', function() {
-                                if (isExpanded) {
-                                    aiAnalysisBox.style.maxHeight = "250px";
-                                    document.getElementById('expandText').textContent = 'Read more';
-                                    document.getElementById('expandIcon').style.transform = 'rotate(0deg)';
-                                } else {
-                                    aiAnalysisBox.style.maxHeight = "none";
-                                    document.getElementById('expandText').textContent = 'Read less';
-                                    document.getElementById('expandIcon').style.transform = 'rotate(180deg)';
-                                }
-                                isExpanded = !isExpanded;
-                            });
-                        }
-                    } else {
-                        aiAnalysisBox.style.maxHeight = "none";
+        function pollAnalysis() {
+            fetch('/api/ai-analysis')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
                     }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.status === 'SUCCESS') {
+                        clearInterval(pollingInterval);
+                        const analysisText = data.analysis || "No analysis available.";
+                        aiAnalysisContent.innerHTML = marked.parse(analysisText);
 
-                    setTimeout(() => {
-                        aiAnalysisContent.style.opacity = '1';
-                    }, 50);
-                }, 300);
-            })
-            .catch((error) => {
-                console.error("AI Analysis Error:", error);
-                aiAnalysisLoading.innerHTML = "<span class='text-red-400 text-sm'>Failed to load analysis.</span>";
-            });
+                        // Fade out loading and show content
+                        aiAnalysisLoading.style.opacity = '0';
+                        setTimeout(() => {
+                            aiAnalysisLoading.classList.add('hidden');
+                            aiAnalysisContent.classList.remove('hidden');
+                            aiAnalysisContent.style.opacity = '1';
+
+                            // Handle expand button logic
+                            if (expandBtn) {
+                                const isMobile = window.innerWidth < 768;
+                                if (isMobile) {
+                                    aiAnalysisBox.style.maxHeight = "120px"; // Initial collapsed height
+                                    expandBtn.classList.remove('hidden');
+                                    let isExpanded = false;
+                                    expandBtn.onclick = function() { // Use onclick to avoid multiple listeners
+                                        isExpanded = !isExpanded;
+                                        if (isExpanded) {
+                                            aiAnalysisBox.style.maxHeight = aiAnalysisContent.scrollHeight + "px";
+                                            document.getElementById('expandText').textContent = 'Read less';
+                                            document.getElementById('expandIcon').style.transform = 'rotate(180deg)';
+                                        } else {
+                                            aiAnalysisBox.style.maxHeight = "120px";
+                                            document.getElementById('expandText').textContent = 'Read more';
+                                            document.getElementById('expandIcon').style.transform = 'rotate(0deg)';
+                                        }
+                                    };
+                                }
+                            }
+                        }, 300);
+
+                    } else if (data.status === 'PENDING') {
+                        // Continue polling, do nothing here
+                    } else if (data.status === 'PROFILE_INCOMPLETE') {
+                        clearInterval(pollingInterval);
+                        window.location.href = data.redirect_url;
+                    } else { // FAILURE or other error
+                        clearInterval(pollingInterval);
+                        throw new Error(data.message || 'Analysis failed to generate.');
+                    }
+                })
+                .catch(error => {
+                    clearInterval(pollingInterval);
+                    console.error("AI Analysis Error:", error);
+                    aiAnalysisLoading.innerHTML = `<span class='text-red-400 text-sm'>${error.message || 'Failed to load analysis.'}</span>`;
+                });
+        }
+
+        // Start polling immediately and then every 3 seconds
+        pollAnalysis();
+        pollingInterval = setInterval(pollAnalysis, 3000);
     }
 
     // Initialize AI analysis for both mobile and desktop
