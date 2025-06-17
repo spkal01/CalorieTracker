@@ -810,7 +810,7 @@ def get_ai_analysis():
         return redirect(url_for('settings'))
 
     today = dt.now().strftime("%Y-%m-%d")
-    now_time = dt.now().strftime("%H:%M")
+    now_time = dt.now(pytz.timezone(current_user.timezone)).strftime("%H:%M") if current_user.timezone else dt.now().strftime("%H:%M")
     total_calories = get_saved_data()[0]['total_calories'] if get_saved_data() else 0
     entry = SavedCalories.query.filter_by(date=today, user_id=current_user.id).first()
     # --- Caching logic using session ---
