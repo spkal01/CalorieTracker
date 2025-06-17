@@ -385,9 +385,11 @@ document.addEventListener("DOMContentLoaded", function() {
                         setTimeout(() => {
                             aiAnalysisLoading.classList.add('hidden');
                             
-                            // Inject content
+                            // Inject content and make it ready for measurement
                             aiAnalysisContent.innerHTML = marked.parse(analysisText);
-                            
+                            aiAnalysisContent.style.opacity = '0'; // Keep it invisible
+                            aiAnalysisContent.classList.remove('hidden'); // But part of the layout
+
                             const isMobile = window.innerWidth < 768 && expandBtn;
                             
                             // For a smooth height transition, we set the max-height
@@ -410,17 +412,16 @@ document.addEventListener("DOMContentLoaded", function() {
                                 };
                             } else {
                                 // On desktop, animate to the full height of the content
-                                // Use max to respect the min-height from inline style
+                                // Now that content is in the layout, scrollHeight will be correct
                                 const currentMinHeight = parseInt(window.getComputedStyle(aiAnalysisBox).minHeight, 10) || 0;
-                                aiAnalysisBox.style.maxHeight = Math.max(aiAnalysisContent.scrollHeight, currentMinHeight) + 'px';
+                                const contentHeight = aiAnalysisContent.scrollHeight;
+                                aiAnalysisBox.style.maxHeight = Math.max(contentHeight, currentMinHeight) + 'px';
                             }
 
                             // 3. Fade in the content
-                            aiAnalysisContent.classList.remove('hidden');
-                            aiAnalysisContent.style.opacity = '0';
-                            aiAnalysisContent.style.transition = 'opacity 0.5s 0.1s ease-in'; // Fade in after a small delay
+                            aiAnalysisContent.style.transition = 'opacity 0.5s 0.1s ease-in';
                             
-                            // Use a tiny timeout to ensure the opacity transition is applied after display change
+                            // Use a tiny timeout to ensure the opacity transition is applied
                             setTimeout(() => {
                                 aiAnalysisContent.style.opacity = '1';
                             }, 20);
