@@ -19,7 +19,7 @@ from PIL import Image
 import pillow_heif
 
 from calorie_tracker import (
-    app, allowed_file, cleanup_uploads, config, db, bcrypt, login_manager, mail, celery
+    app, allowed_file, cleanup_uploads, config, db, bcrypt, login_manager, mail, celery, shared_task
 )
 
 from calorie_tracker.models import (
@@ -1607,6 +1607,7 @@ def schedule_meal_reminders_api():
         app.logger.error(f"Error scheduling meal reminders: {e}")
         return jsonify({'status': 'error', 'message': 'Failed to schedule meal reminders.'}), 500
 
+@shared_task(name='calorie_tracker.routes.schedule_meal_reminders')
 def schedule_meal_reminders():
     """Schedule meal reminders for users who have enabled them."""
     users = User.query.filter_by(notify_meal_reminder=True).all()

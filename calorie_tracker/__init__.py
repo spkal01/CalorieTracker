@@ -12,6 +12,7 @@ from flask_dance.contrib.google import make_google_blueprint
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_wtf.csrf import CSRFProtect
 from celery import Celery
+from celery import shared_task
 from celery.schedules import crontab 
 
 # Create Flask app and trust proxy headers (Render)
