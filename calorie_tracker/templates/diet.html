@@ -376,37 +376,56 @@ document.addEventListener("DOMContentLoaded", function() {
                     if (data.status === 'SUCCESS') {
                         clearInterval(pollingInterval);
                         const analysisText = data.analysis || "No analysis available.";
-                        aiAnalysisContent.innerHTML = marked.parse(analysisText);
 
-                        // Fade out loading and show content
+                        // 1. Fade out loading spinner
+                        aiAnalysisLoading.style.transition = 'opacity 0.4s ease-out';
                         aiAnalysisLoading.style.opacity = '0';
+
+                        // 2. After spinner is faded, prepare content and container
                         setTimeout(() => {
                             aiAnalysisLoading.classList.add('hidden');
-                            aiAnalysisContent.classList.remove('hidden');
-                            aiAnalysisContent.style.opacity = '1';
-
-                            // Handle expand button logic
-                            if (expandBtn) {
-                                const isMobile = window.innerWidth < 768;
-                                if (isMobile) {
-                                    aiAnalysisBox.style.maxHeight = "120px"; // Initial collapsed height
-                                    expandBtn.classList.remove('hidden');
-                                    let isExpanded = false;
-                                    expandBtn.onclick = function() { // Use onclick to avoid multiple listeners
-                                        isExpanded = !isExpanded;
-                                        if (isExpanded) {
-                                            aiAnalysisBox.style.maxHeight = aiAnalysisContent.scrollHeight + "px";
-                                            document.getElementById('expandText').textContent = 'Read less';
-                                            document.getElementById('expandIcon').style.transform = 'rotate(180deg)';
-                                        } else {
-                                            aiAnalysisBox.style.maxHeight = "120px";
-                                            document.getElementById('expandText').textContent = 'Read more';
-                                            document.getElementById('expandIcon').style.transform = 'rotate(0deg)';
-                                        }
-                                    };
-                                }
+                            
+                            // Inject content
+                            aiAnalysisContent.innerHTML = marked.parse(analysisText);
+                            
+                            const isMobile = window.innerWidth < 768 && expandBtn;
+                            
+                            // For a smooth height transition, we set the max-height
+                            // The 'transition-all' property on aiAnalysisBox will animate this
+                            if (isMobile) {
+                                // On mobile, we keep it collapsed initially. The box is already 120px.
+                                expandBtn.classList.remove('hidden');
+                                let isExpanded = false;
+                                expandBtn.onclick = function() {
+                                    isExpanded = !isExpanded;
+                                    if (isExpanded) {
+                                        aiAnalysisBox.style.maxHeight = aiAnalysisContent.scrollHeight + "px";
+                                        document.getElementById('expandText').textContent = 'Read less';
+                                        document.getElementById('expandIcon').style.transform = 'rotate(180deg)';
+                                    } else {
+                                        aiAnalysisBox.style.maxHeight = "120px";
+                                        document.getElementById('expandText').textContent = 'Read more';
+                                        document.getElementById('expandIcon').style.transform = 'rotate(0deg)';
+                                    }
+                                };
+                            } else {
+                                // On desktop, animate to the full height of the content
+                                // Use max to respect the min-height from inline style
+                                const currentMinHeight = parseInt(window.getComputedStyle(aiAnalysisBox).minHeight, 10) || 0;
+                                aiAnalysisBox.style.maxHeight = Math.max(aiAnalysisContent.scrollHeight, currentMinHeight) + 'px';
                             }
-                        }, 300);
+
+                            // 3. Fade in the content
+                            aiAnalysisContent.classList.remove('hidden');
+                            aiAnalysisContent.style.opacity = '0';
+                            aiAnalysisContent.style.transition = 'opacity 0.5s 0.1s ease-in'; // Fade in after a small delay
+                            
+                            // Use a tiny timeout to ensure the opacity transition is applied after display change
+                            setTimeout(() => {
+                                aiAnalysisContent.style.opacity = '1';
+                            }, 20);
+
+                        }, 400); // This timeout should be the duration of the loader's fade-out
 
                     } else if (data.status === 'PENDING') {
                         // Continue polling, do nothing here
