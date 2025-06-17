@@ -299,7 +299,7 @@ def index():
         push_data(custom_calories, food_name=food_name)
         return redirect(url_for('saved'))
     calorie_goal = current_user.daily_calorie_goal if current_user.daily_calorie_goal else 2000
-    calories_eaten = get_saved_data()[0]['total_calories'] if get_saved_data() else 0
+    calories_eaten = get_saved_data()[0]['total_calories_today'] if get_saved_data() else 0
     return render_template('dashboard.html', year=dt.now().year, calorie_goal=calorie_goal, calories_eaten = calories_eaten, calories_remaining=(calorie_goal - calories_eaten))
 
 @app.route('/saved', methods=['GET', 'POST'])
@@ -489,7 +489,8 @@ def get_saved_data():
             'id': data.id,
             'date': data.date,
             'foods': [{'name': f.name, 'calories': f.calories} for f in foods],
-            'total_calories': total_calories
+            'total_calories': total_calories,
+            'total_calories_today': total_calories if data.date == dt.now().strftime("%Y-%m-%d") else 0,
         })
     result.sort(key=lambda x: dt.strptime(x['date'], "%Y-%m-%d"), reverse=True)
     return result
