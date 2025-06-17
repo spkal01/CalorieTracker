@@ -1219,7 +1219,7 @@ def generate_and_store_diet_plan_logic(user_id, describe_diet='', generation_tok
                     {"role": "system", "content": "You are a diet planning assistant that outputs JSON."},
                     {"role": "user", "content": prompt}
                 ],
-                user=get_hashed_user_id(),
+                user=get_hashed_user_id(user_id),
                 response_format={"type": "json_object"}
             )
             ai_generated_plan_str = response.choices[0].message.content
@@ -1446,10 +1446,10 @@ def widget_data():
             "last_updated": dt.now().isoformat()
         }), 500
 
-def get_hashed_user_id():
+def get_hashed_user_id(user_id=None):
     """Cache the hashed user ID in Flask's session context (g) for the current user."""
     if not hasattr(g, 'hashed_user_id'):
-        g.hashed_user_id = hashlib.md5(str(current_user.id).encode('utf-8')).hexdigest()
+        g.hashed_user_id = hashlib.md5(str(current_user.id if user_id is None else user_id).encode('utf-8')).hexdigest()
     return g.hashed_user_id
 
 
