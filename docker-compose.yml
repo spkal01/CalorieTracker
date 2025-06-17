@@ -28,6 +28,7 @@ services:
     build: .
     command: celery -A calorie_tracker.celery worker --loglevel=info
     env_file: .env
+    restart: unless-stopped
     depends_on:
       - db
       - redis
@@ -36,6 +37,7 @@ services:
     build: .
     command: celery -A calorie_tracker.celery beat --loglevel=info
     env_file: .env
+    restart: unless-stopped
     depends_on:
       - db
       - redis
