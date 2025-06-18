@@ -495,7 +495,7 @@ def get_saved_data():
             'date': data.date,
             'foods': [{'name': f.name, 'calories': f.calories} for f in foods],
             'total_calories': total_calories,
-            'total_calories_today': total_calories if data.date == dt.now().strftime("%Y-%m-%d") else 0,
+            'total_calories_today': total_calories if data.date == dt.now(pytz.timezone(current_user.timezone or 'UTC')).strftime("%Y-%m-%d") else 0,
         })
     result.sort(key=lambda x: dt.strptime(x['date'], "%Y-%m-%d"), reverse=True)
     return result
