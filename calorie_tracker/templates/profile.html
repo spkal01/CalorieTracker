@@ -14,8 +14,14 @@
             <a href="{{ url_for('saved') }}" class="block w-full text-center bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition">
                 View Calorie Entries
             </a>
-            <a href="{{ url_for('custom_calories') }}" class="block w-full text-center bg-zinc-700 hover:bg-blue-700 text-blue-200 font-semibold py-2 px-4 rounded transition">
+            <a href="{{ url_for('custom_calories') }}" class="block w-full text-center bg-zinc-700 hover:bg-zinc-600 text-white font-semibold py-2 px-4 rounded transition">
                 Custom Calorie Analyzer
+            </a>
+            <a href="{{ url_for('settings') }}" class="block w-full text-center bg-zinc-700 hover:bg-zinc-600 text-white font-semibold py-2 px-4 rounded transition">
+                Settings
+            </a>
+            <a href="{{ url_for('about') }}" class="block w-full text-center bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded transition">
+                About CalorieTracker
             </a>
             <form action="{{ url_for('logout') }}">
                 <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded transition mt-2">

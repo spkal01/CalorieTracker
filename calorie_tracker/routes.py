@@ -302,6 +302,11 @@ def index():
     calories_eaten = get_saved_data()[0]['total_calories_today'] if get_saved_data() else 0
     return render_template('dashboard.html', year=dt.now().year, calorie_goal=calorie_goal, calories_eaten = calories_eaten, calories_remaining=(calorie_goal - calories_eaten))
 
+@app.route('/about')
+@login_required
+def about():
+    return render_template('about.html')
+
 @app.route('/saved', methods=['GET', 'POST'])
 @login_required
 def saved():

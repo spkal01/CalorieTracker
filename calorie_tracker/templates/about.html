@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Mobile Header -->
+<div class="mobile-header md:hidden">
+  <a href="{{ url_for('profile') }}" class="header-action-button">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M15 18l-6-6 6-6"/>
+    </svg>
+  </a>
+  <div class="page-title">About</div>
+  <div class="header-actions">
+    <!-- Spacer -->
+  </div>
+</div>
+
+<!-- Desktop Header -->
+<div class="hidden md:block mb-8">
+  <h1 class="text-3xl font-bold text-zinc-100 text-center">About CalorieTracker</h1>
+  <p class="text-zinc-400 text-center mt-2">Learn more about the app and its developer.</p>
+</div>
+
+<div class="max-w-4xl mx-auto px-4 md:px-6 py-8">
+  <div class="bg-zinc-800 border border-zinc-700 rounded-xl p-6 md:p-8">
+    
+    <div class="text-center mb-8">
+      <img src="{{ url_for('static', filename='images/favicon.png') }}" alt="CalorieTracker Logo" class="w-24 h-24 mx-auto mb-4 rounded-full shadow-lg">
+      <h2 class="text-2xl md:text-3xl font-bold text-white">CalorieTracker</h2>
+      <p class="text-zinc-300 mt-2">Your personal AI-powered nutrition assistant.</p>
+    </div>
+
+    <div class="prose prose-invert max-w-none text-zinc-300">
+      <p>CalorieTracker is a modern, intuitive web application designed to help you take control of your nutritional health. By leveraging the power of AI, we provide personalized diet plans, in-depth analysis of your eating habits, and motivational support to keep you on track with your health goals.</p>
+      
+      <h3 class="text-xl font-semibold text-white mt-8">Our Mission</h3>
+      <p>Our mission is to make nutrition tracking simple, accessible, and effective for everyone. We believe that with the right tools and insights, anyone can achieve a healthier lifestyle. Whether you're looking to lose weight, build muscle, or simply eat better, CalorieTracker is here to guide you every step of the way.</p>
+
+      <h3 class="text-xl font-semibold text-white mt-8">The Developer</h3>
+      <p>This application was created with passion by <strong>Spkal01</strong>. I am a developer focused on building useful and beautiful applications with modern technology.</p>
+
+      <h3 class="text-xl font-semibold text-white mt-8">Get in Touch & Support</h3>
+      <p>The project is open-source and you can find the code on GitHub. Contributions, feedback, and suggestions are always welcome!</p>
+      
+      <div class="flex flex-col md:flex-row gap-4 mt-6">
+        <a href="https://github.com/spkal01/CalorieTracker" target="_blank" rel="noopener noreferrer" class="bg-zinc-700 hover:bg-zinc-600 text-white font-medium py-3 px-5 rounded-lg flex items-center justify-center transition-colors duration-200">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+          View on GitHub
+        </a>
+        <a href="https://paypal.me/spyroskal" target="_blank" rel="noopener noreferrer" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-5 rounded-lg flex items-center justify-center transition-colors duration-200">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg>
+          Support the Project
+        </a>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
