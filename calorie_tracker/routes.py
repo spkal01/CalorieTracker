@@ -572,7 +572,7 @@ def settings():
     if hasattr(current_user, 'notifications_enabled'):
         template_vars.update({
             'notifications_enabled': getattr(current_user, 'notifications_enabled', False),
-            'notify_meal_reminder': getattr(current_user, 'notify_meal_reminder', False),
+            'notify_meal_reminder': getattr(current_user, 'notify_meal_reminder', True),
             'notify_goal_achievement': getattr(current_user, 'notify_goal_achievement', True),
             'reminder_time': getattr(current_user, 'reminder_time', None)
         })

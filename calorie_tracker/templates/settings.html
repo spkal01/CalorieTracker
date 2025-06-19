@@ -92,13 +92,6 @@
                         <label for="notify_goal_achievement" class="ml-2 text-zinc-300 text-sm">Goal achievement alerts</label>
                     </div>
                     
-                    <div class="flex items-center">
-                        <input type="checkbox" id="notify_updates" name="notify_updates" 
-                               class="w-4 h-4 bg-zinc-900 border-zinc-700 rounded"
-                               {% if notify_updates %}checked{% endif %} 
-                               {% if not notifications_enabled %}disabled{% endif %} />
-                        <label for="notify_updates" class="ml-2 text-zinc-300 text-sm">App updates and new features</label>
-                    </div>
                     
                     <div class="mt-3">
                         <label for="reminder_time" class="block text-zinc-300 mb-1 text-sm">Reminder Time</label>
@@ -236,13 +229,12 @@
                                     }
                                 });
                         }
-                    });
-            } else if (Notification.permission === 'granted' && !pushManager.isSubscribed) {
-                // Subscribe if permission is already granted but not subscribed
+                    });            } else if (Notification.permission === 'granted' && !pushManager.isSubscribed) {
+                // Auto-subscribe if permission is already granted but not subscribed
                 pushManager.subscribe()
                     .then(subscription => {
                         if (subscription) {
-                            console.log('Successfully subscribed to push notifications');
+                            console.log('Auto-subscribed to push notifications due to granted permission');
                         }
                     });
             }
@@ -276,11 +268,52 @@
                 const data = await response.json();
                 
                 // Initialize push manager with VAPID public key
-                const initialized = await pushManager.initialize(data.publicKey);
-                
-                if (initialized) {
-                    // Update UI based on subscription status
-                    notificationsEnabled.checked = pushManager.isSubscribed;
+                const initialized = await pushManager.initialize(data.publicKey);                if (initialized) {
+                    // Check if notification permission is granted and auto-enable if so
+                    const permission = Notification.permission;
+                    if (permission === 'granted' && !notificationsEnabled.checked) {
+                        // Auto-enable notifications if permission is granted but not enabled
+                        notificationsEnabled.checked = true;                        // Also enable default notification options if they're not set
+                        // This respects the backend defaults for new users or those who haven't explicitly disabled them
+                        if (!document.getElementById('notify_meal_reminder').checked) {
+                            document.getElementById('notify_meal_reminder').checked = true;
+                        }
+                        if (!document.getElementById('notify_goal_achievement').checked) {
+                            document.getElementById('notify_goal_achievement').checked = true;
+                        }
+                          // Auto-subscribe to push notifications if not already subscribed
+                        if (!pushManager.isSubscribed) {
+                            pushManager.subscribe()
+                                .then(subscription => {
+                                    if (subscription) {
+                                        console.log('Auto-subscribed to push notifications due to granted permission');
+                                          // Auto-save the preferences since user has granted permission
+                                        const preferences = {
+                                            enabled: true,
+                                            meal_reminder: document.getElementById('notify_meal_reminder').checked,
+                                            goal_achievement: document.getElementById('notify_goal_achievement').checked,
+                                            reminder_time: document.getElementById('reminder_time').value
+                                        };
+                                          pushManager.updateNotificationPreferences(preferences)
+                                            .then(success => {
+                                                if (success) {
+                                                    console.log('Auto-saved notification preferences');
+                                                    // Show a brief visual indicator that notifications were auto-enabled
+                                                    notificationStatus.innerHTML = '<span class="text-green-400">✓ Notifications auto-enabled due to granted permission</span>';
+                                                    setTimeout(() => {
+                                                        updateNotificationStatus(); // Reset to normal status after 3 seconds
+                                                    }, 3000);
+                                                } else {
+                                                    console.warn('Failed to auto-save notification preferences');
+                                                }
+                                            });
+                                    }
+                                });
+                        }
+                    } else {
+                        // Update UI based on subscription status
+                        notificationsEnabled.checked = pushManager.isSubscribed;
+                    }
                     toggleNotificationOptions();
                 }
                 
@@ -297,8 +330,7 @@
         
         // Save notification preferences when form is submitted
         document.querySelector('form').addEventListener('submit', async function(event) {
-            if (notificationsEnabled.checked && Notification.permission === 'granted') {
-                // Collect notification preferences
+            if (notificationsEnabled.checked && Notification.permission === 'granted') {                // Collect notification preferences
                 const preferences = {
                     enabled: notificationsEnabled.checked,
                     meal_reminder: document.getElementById('notify_meal_reminder').checked,
