@@ -115,7 +115,7 @@ def require_login():
         'login', 'signup', 'static', 'signup_verify', 'signup_email',
         'forgot_password', 'reset_password', 'landing',
         'login_google', 'google.login', 'google.authorized',
-        'serve_sw', 'offline_page', "serve_assetlinks"
+        'serve_sw', 'offline_page', "serve_assetlinks", "privacy"
     ]
     if not current_user.is_authenticated and request.endpoint not in public_routes:
         return redirect(url_for('landing'))
@@ -133,6 +133,10 @@ def login():
         else:
             flash('Invalid username or password', 'error')
     return render_template('login/login.html')
+
+@app.route('/privacy')
+def privacy():
+    return render_template('privacy.html')
 
 @app.route('/logout')
 @login_required
