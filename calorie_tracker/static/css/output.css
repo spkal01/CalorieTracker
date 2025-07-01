@@ -973,6 +973,9 @@
   .bg-red-600 {
     background-color: var(--color-red-600);
   }
+  .bg-red-800 {
+    background-color: var(--color-red-800);
+  }
   .bg-red-800\/50 {
     background-color: color-mix(in srgb, oklch(44.4% 0.177 26.899) 50%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
@@ -1839,6 +1842,13 @@
     &:hover {
       @media (hover: hover) {
         background-color: var(--color-red-700);
+      }
+    }
+  }
+  .hover\:bg-red-900 {
+    &:hover {
+      @media (hover: hover) {
+        background-color: var(--color-red-900);
       }
     }
   }

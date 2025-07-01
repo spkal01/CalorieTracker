@@ -30,7 +30,7 @@ class User(db.Model, UserMixin):
     weight = db.Column(db.Float, nullable=True)
     height = db.Column(db.Float, nullable=True)
     daily_calorie_goal = db.Column(db.Integer, nullable=True)
-    saved_calories = db.relationship('SavedCalories', backref='user', lazy=True)
+    saved_calories = db.relationship('SavedCalories', backref='user', lazy=True, cascade="all, delete-orphan")
     email = db.Column(db.String(150), unique=True, nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
 

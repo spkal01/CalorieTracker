@@ -145,6 +145,15 @@ def logout():
     flash('You have been logged out.', 'success')
     return redirect(url_for('login'))
 
+@app.route('/delete_account', methods=['POST'])
+@login_required
+def delete_account():
+    db.session.delete(current_user)
+    db.session.commit()
+    logout_user()
+    flash('Your account and all associated data have been permanently deleted.', 'success')
+    return redirect(url_for('landing'))
+
 def password_strength_score(password):
     import re
     score = 0
